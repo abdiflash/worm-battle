@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Worm Battle Class Arena</title>
+
+<!-- Fun Font for Kids -->
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+/* GARDEN / SOIL THEME */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  font-family: 'Fredoka', sans-serif;
+  background-color: #1a0f07;
+  background-image: radial-gradient(circle at top left, #2d1a0e, #140b05);
+  color: #fff;
+  text-align: center;
+  overflow-x: hidden;
+}
+
+.main-wrapper {
+  width: 100%;
+  max-width: 650px;
+  margin: 0 auto;
+  padding: 30px 15px;
+  box-sizing: border-box;
+}
+
+h1 { margin: 0 0 15px 0; font-size: 30px; color: #ffca28; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+
+.game-card {
+  background: rgba(45, 26, 14, 0.95);
+  border-radius: 24px;
+  padding: 25px 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  border: 3px solid #4a2d18;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+button {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 12px 20px;
+  margin: 5px;
+  border-radius: 16px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  color: #fff;
+}
+
+button:active:not(:disabled) { transform: translateY(4px); }
+button:disabled { background: #4a382c !important; color: #8c7365 !important; cursor: not-allowed; }
+
+.btn-green { background: #4caf50; box-shadow: 0 5px 0 #2e7d32; }
+.btn-orange { background: #ff9800; box-shadow: 0 5px 0 #ef6c00; }
+.btn-blue { background: #2979ff; box-shadow: 0 5px 0 #1565c0; }
+.btn-purple { background: #9c27b0; box-shadow: 0 5px 0 #6a1b9a; font-size: 18px; padding: 14px 28px; width: 90%; }
+.btn-red { background: #ff5252; box-shadow: 0 5px 0 #c62828; }
+
+input, select {
+  padding: 12px;
+  border-radius: 16px;
+  border: 2px solid #5c3a21;
+  margin: 8px auto;
+  width: 90%;
+  max-width: 320px;
+  font-size: 16px;
+  font-family: 'Fredoka', sans-serif;
+  text-align: center;
+  box-sizing: border-box;
+  background: #140b05;
+  color: #fff;
+  display: block;
+}
+
+/* WORM CANVAS ARENA (TANAH BUMI) */
+#wormCanvas {
+  background: #120903;
+  border-radius: 20px;
+  border: 3px solid #ffca28;
+  box-shadow: inset 0 0 25px rgba(0,0,0,0.9);
+  display: block;
+  margin: 15px auto;
+  max-width: 100%;
+}
+
+.lobby-container {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 15px;
+}
+.team-column {
+  width: 48%;
+  background: #140b05;
+  border-radius: 16px;
+  padding: 10px;
+  border: 2px solid #3d2311;
+  box-sizing: border-box;
+  min-height: 100px;
+}
+.player-tag-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.player-tag {
+  padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; color: #fff;
+}
+.tag-red { background: #ff5252; }
+.tag-blue { background: #2979ff; }
+
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+  background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center;
+}
+.modal-box {
+  background: #2d1a0e; padding: 25px; border-radius: 24px; width: 90%; max-width: 340px; 
+  border: 3px solid #ffca28; text-align: center; color: #fff;
+}
+.hidden { display: none !important; }
+
+#fullscreen-btn {
+  position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.1);
+  color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; padding: 6px 12px; font-size: 12px;
+}
+</style>
+</head>
+
+<body>
+<button id="fullscreen-btn">🔍 Full Screen</button>
+
+<div class="main-wrapper">
+  <h1>🪱 Worm Battle Class Arena</h1>
+
+  <!-- FORM SISWA -->
+  <div id="top-menu" class="game-card">
+    <button id="createClassBtn" class="btn-orange" onclick="bukaModalBuatKelas()" style="width: 100%; margin-bottom:15px;">
+      👨‍🏫 TEACHER: CREATE CLASS CODE
+    </button>
+
+    <div style="background: #140b05; padding: 15px; border-radius: 16px; border: 2px dashed #ffca28; margin-bottom: 15px;">
+      <h3 style="color: #ffca28; margin-top:0;">🎮 STUDENT JOIN</h3>
+      <input id="class" placeholder="ENTER CLASS CODE..." oninput="cekInput()" style="text-transform: uppercase;">
+      <input id="name" placeholder="ENTER YOUR NAME..." oninput="cekInput()">
+      
+      <select id="teamSelect" onchange="cekInput()">
+        <option value="">👤 Play Individual</option>
+        <option value="🔴">🔴 Red Worm Team</option>
+        <option value="🔵">🔵 Blue Worm Team</option>
+      </select>
+    </div>
+
+    <button id="scoreboardBtn" class="btn-blue" onclick="toggleBoard()">📊 Scoreboard</button>
+    <button id="startBtn" class="btn-purple" onclick="startGame()" disabled>START GAME</button>
+  </div>
+
+  <!-- AREA KUIS SISWA -->
+  <div id="quizArea" class="game-card hidden">
+    <h2 id="questionText" style="color:#ffca28;">Loading question...</h2>
+    <div id="answerOptions" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px;"></div>
+    <div id="quizMsg" style="margin-top:15px; font-weight:bold;"></div>
+  </div>
+
+  <!-- LIVEBOARD GURU (PROYEKTOR WORM BATTLE) -->
+  <div id="boardPanel" class="game-card hidden">
+    <h3>📊 Live Worm Battle Arena</h3>
+    
+    <div style="display:flex; justify-content:center; gap:5px; margin-bottom:10px;">
+      <input id="filterClass" placeholder="CLASS CODE..." style="width:50%; margin:0; text-transform: uppercase;" oninput="syncHostChannel()">
+      <button class="btn-blue" onclick="renderBoard()" style="margin:0;">Search</button>
+    </div>
+
+    <button id="hostStartBtn" class="btn-green" onclick="triggerHostStartMatch()" style="width: 100%; font-size: 16px; padding: 12px; margin-bottom: 10px;">
+      🚀 START WORM BATTLE (ALL STUDENTS)
+    </button>
+
+    <!-- CANVAS WORM BATTLE 2D ARENA -->
+    <canvas id="wormCanvas" width="550" height="320"></canvas>
+
+    <div class="lobby-container">
+      <div class="team-column" style="border-color: #ff5252;">
+        <h4 style="color: #ff5252; margin:0 0 5px 0;">🔴 Red Worm (<span id="redLength">10</span> seg)</h4>
+        <div id="redTeamList" class="player-tag-list"></div>
+      </div>
+      <div class="team-column" style="border-color: #2979ff;">
+        <h4 style="color: #2979ff; margin:0 0 5px 0;">🔵 Blue Worm (<span id="blueLength">10</span> seg)</h4>
+        <div id="blueTeamList" class="player-tag-list"></div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border-radius: 16px; padding:10px; margin:15px 0;">
+        <canvas id="chart" width="200" height="200"></canvas>
+    </div>
+    
+    <div id="leaderboard" style="text-align:left; background:#140b05; padding:12px; border-radius:12px;"></div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="custom-alert" class="modal-overlay">
+  <div class="modal-box">
+    <h2 id="alert-title">Info</h2>
+    <p id="alert-msg"></p>
+    <button class="btn-blue" onclick="tutupAlert()" style="width:100%;">Close</button>
+  </div>
+</div>
+
+<div id="modal-buat-kelas" class="modal-overlay">
+  <div class="modal-box">
+    <h2 style="color:#ff9800;">👨‍🏫 Create Class</h2>
+    <input type="text" id="input-pin-baru" placeholder="Enter PIN (e.g. 1234)">
+    <div style="display:flex; gap:10px; margin-top:15px;">
+      <button class="btn-red" onclick="tutupModalBuatKelas()" style="width:50%;">Cancel</button>
+      <button class="btn-green" onclick="prosesBuatKelas()" style="width:50%;">Create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://huppyicherwdhgxrcyav.supabase.co";
+const SUPABASE_KEY = "sb_publishable_OJPFFYPGJrDUkjD-gVMOOw_GET4MdOW";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let realtimeChannel = null;
+let currentJoinedClass = "";
+let isTeacherHost = false;
+let score = 0, currentRecordId = null;
+let autoRefreshTimer = null;
+let animationFrameId = null;
+
+/* WORM GAME STATE (CANVAS 2D ARENA) */
+const canvas = document.getElementById("wormCanvas");
+const ctx = canvas.getContext("2d");
+
+let foods = [];
+let redWorm = { x: 100, y: 160, length: 10, angle: 0, speed: 2, segments: [], color: '#ff5252' };
+let blueWorm = { x: 450, y: 160, length: 10, angle: Math.PI, speed: 2, segments: [], color: '#2979ff' };
+
+function initWorms() {
+  redWorm.segments = Array(redWorm.length).fill({x: redWorm.x, y: redWorm.y});
+  blueWorm.segments = Array(blueWorm.length).fill({x: blueWorm.x, y: blueWorm.y});
+  generateFoods();
+}
+
+function generateFoods() {
+  foods = [];
+  for(let i=0; i<15; i++) {
+    foods.push({
+      x: Math.random() * (canvas.width - 40) + 20,
+      y: Math.random() * (canvas.height - 40) + 20,
+      color: ['#ffca28', '#8bc34a', '#e91e63'][Math.floor(Math.random()*3)]
+    });
+  }
+}
+
+function updateWormPhysics() {
+  [redWorm, blueWorm].forEach(w => {
+    // Gerakan AI menuju makanan terdekat
+    let target = foods[0] || {x: canvas.width/2, y: canvas.height/2};
+    let dx = target.x - w.x;
+    let dy = target.y - w.y;
+    w.angle = Math.atan2(dy, dx);
+
+    // Kecepatan ekstra untuk cacing yang lebih panjang (Mengejar Cacing Pendek)
+    let isChaser = (w === redWorm && redWorm.length > blueWorm.length) || 
+                   (w === blueWorm && blueWorm.length > redWorm.length);
+    let speed = isChaser ? 3.2 : 1.8;
+
+    w.x += Math.cos(w.angle) * speed;
+    w.y += Math.sin(w.angle) * speed;
+
+    // Batas Layar Arena
+    if(w.x < 10) w.x = canvas.width - 10;
+    if(w.x > canvas.width - 10) w.x = 10;
+    if(w.y < 10) w.y = canvas.height - 10;
+    if(w.y > canvas.height - 10) w.y = 10;
+
+    // Update Segmen Tubuh Cacing
+    w.segments.unshift({x: w.x, y: w.y});
+    while(w.segments.length > w.length) w.segments.pop();
+
+    // Deteksi Cacing Memakan Makanan
+    foods.forEach((f, idx) => {
+      if(Math.hypot(w.x - f.x, w.y - f.y) < 15) {
+        w.length += 1;
+        foods.splice(idx, 1);
+        foods.push({
+          x: Math.random() * (canvas.width - 40) + 20,
+          y: Math.random() * (canvas.height - 40) + 20,
+          color: '#ffca28'
+        });
+      }
+    });
+  });
+
+  // Deteksi Benturan/Gigitan: Cacing Panjang Menggigit Cacing Pendek
+  let dist = Math.hypot(redWorm.x - blueWorm.x, redWorm.y - blueWorm.y);
+  if(dist < 25) {
+    if(redWorm.length > blueWorm.length && blueWorm.length > 5) {
+      redWorm.length += 1;
+      blueWorm.length -= 1;
+    } else if(blueWorm.length > redWorm.length && redWorm.length > 5) {
+      blueWorm.length += 1;
+      redWorm.length -= 1;
+    }
+  }
+
+  document.getElementById("redLength").innerText = redWorm.length;
+  document.getElementById("blueLength").innerText = blueWorm.length;
+}
+
+function drawWormArena() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Gambar Makanan Organik
+  foods.forEach(f => {
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = f.color;
+    ctx.fill();
+    ctx.closePath();
+  });
+
+  // Gambar Cacing (Bentuk Segmen Bulat Lembut)
+  [redWorm, blueWorm].forEach(w => {
+    w.segments.forEach((seg, i) => {
+      ctx.beginPath();
+      // Kepala cacing sedikit lebih besar
+      let radius = i === 0 ? 11 : Math.max(5, 9 - (i * 0.15));
+      ctx.arc(seg.x, seg.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = w.color;
+      ctx.shadowBlur = i === 0 ? 8 : 0;
+      ctx.shadowColor = w.color;
+      ctx.fill();
+      ctx.closePath();
+    });
+  });
+
+  updateWormPhysics();
+  animationFrameId = requestAnimationFrame(drawWormArena);
+}
+
+/* CEK INPUT & PENGUNCIAN TOMBOL PRESISI */
+function cekInput() {
+  const nama = document.getElementById("name").value.trim();
+  const kelas = document.getElementById("class").value.trim().toUpperCase();
+  const team = document.getElementById("teamSelect").value;
+  const startBtn = document.getElementById("startBtn");
+  const createClassBtn = document.getElementById("createClassBtn");
+  const scoreboardBtn = document.getElementById("scoreboardBtn");
+
+  if (team !== "") {
+    createClassBtn.disabled = true; createClassBtn.style.display = "none";
+    scoreboardBtn.disabled = true; scoreboardBtn.style.display = "none";
+
+    if (nama !== "" && kelas !== "") {
+      startBtn.disabled = true;
+      startBtn.innerText = "⏳ WAITING FOR TEACHER...";
+      connectRealtimeChannel(kelas, nama, team);
+    }
+  } else {
+    if (!isTeacherHost) {
+      createClassBtn.disabled = false; createClassBtn.style.display = "block";
+      scoreboardBtn.disabled = false; scoreboardBtn.style.display = "inline-block";
+    }
+    startBtn.disabled = !(nama !== "" && kelas !== "");
+    startBtn.innerText = "START GAME";
+  }
+}
+
+function connectRealtimeChannel(classCode, pName = "", pTeam = "") {
+  if (currentJoinedClass === classCode && realtimeChannel) {
+    if (pName !== "") realtimeChannel.track({ name: pName, team: pTeam });
+    return;
+  }
+  if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
+  currentJoinedClass = classCode;
+
+  realtimeChannel = supabaseClient.channel('class-' + classCode, {
+    config: { presence: { key: pName || 'host' } }
+  });
+
+  realtimeChannel
+    .on('presence', { event: 'sync' }, () => updateLobbyUI(realtimeChannel.presenceState()))
+    .on('broadcast', { event: 'start_battle' }, () => {
+      if (!isTeacherHost) startQuizForStudent();
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED' && pName !== "") {
+        await realtimeChannel.track({ name: pName, team: pTeam });
+      }
+    });
+}
+
+function updateLobbyUI(state) {
+  let redP = [], blueP = [];
+  Object.keys(state).forEach(k => {
+    state[k].forEach(p => {
+      if (p.team === "🔴") redP.push(p.name);
+      if (p.team === "🔵") blueP.push(p.name);
+    });
+  });
+
+  document.getElementById("redTeamList").innerHTML = redP.map(n => `<div class="player-tag tag-red">🔴 ${n}</div>`).join('');
+  document.getElementById("blueTeamList").innerHTML = blueP.map(n => `<div class="player-tag tag-blue">🔵 ${n}</div>`).join('');
+}
+
+function syncHostChannel() {
+  const classCode = document.getElementById("filterClass").value.trim().toUpperCase();
+  renderBoard();
+  if (classCode !== "") {
+    isTeacherHost = true;
+    connectRealtimeChannel(classCode);
+  }
+}
+
+async function triggerHostStartMatch() {
+  const classCode = document.getElementById("filterClass").value.trim().toUpperCase();
+  if (!classCode) return;
+
+  isTeacherHost = true;
+  connectRealtimeChannel(classCode);
+
+  setTimeout(() => {
+    if (realtimeChannel) {
+      realtimeChannel.send({ type: 'broadcast', event: 'start_battle' });
+      munculkanAlert("🚀 BATTLE STARTED!", "Worm Arena is Live on Board!");
+      
+      initWorms();
+      if(animationFrameId) cancelAnimationFrame(animationFrameId);
+      drawWormArena();
+
+      if(autoRefreshTimer) clearInterval(autoRefreshTimer);
+      autoRefreshTimer = setInterval(renderBoard, 1000);
+    }
+  }, 300);
+}
+
+/* KUIS MODUL SISWA */
+let currentAns = 0;
+function startQuizForStudent() {
+  document.getElementById("top-menu").classList.add("hidden");
+  document.getElementById("quizArea").classList.remove("hidden");
+  generateQuiz();
+}
+
+function generateQuiz() {
+  let n1 = Math.floor(Math.random() * 20) + 1;
+  let n2 = Math.floor(Math.random() * 20) + 1;
+  currentAns = n1 + n2;
+  document.getElementById("questionText").innerText = `${n1} + ${n2} = ?`;
+
+  let opts = [currentAns, currentAns + 2, currentAns - 1, currentAns + 5].sort(() => Math.random() - 0.5);
+  let html = "";
+  opts.forEach(o => {
+    html += `<button class="btn-blue" onclick="checkAnswer(${o})">${o}</button>`;
+  });
+  document.getElementById("answerOptions").innerHTML = html;
+}
+
+async function checkAnswer(val) {
+  if (val === currentAns) {
+    score += 10;
+    document.getElementById("quizMsg").innerHTML = "<span style='color:#4caf50;'>✨ CORRECT! +10 (WORM GREW!)</span>";
+    let team = document.getElementById("teamSelect").value;
+    if (team === "🔴") redWorm.length += 1;
+    if (team === "🔵") blueWorm.length += 1;
+    syncScoreToDatabase();
+  } else {
+    document.getElementById("quizMsg").innerHTML = "<span style='color:#ff5252;'>❌ WRONG!</span>";
+  }
+  setTimeout(() => {
+    document.getElementById("quizMsg").innerHTML = "";
+    generateQuiz();
+  }, 800);
+}
+
+async function syncScoreToDatabase() {
+  let pName = document.getElementById("name").value.trim();
+  let pTeam = document.getElementById("teamSelect").value;
+  let pClass = document.getElementById("class").value.trim().toUpperCase();
+
+  if(!currentRecordId) {
+    const { data } = await supabaseClient.from("scores").insert([{
+      name: pTeam + " " + pName, class: pClass, score: score, mode: "worm"
+    }]).select();
+    if(data && data.length > 0) currentRecordId = data[0].id;
+  } else {
+    await supabaseClient.from("scores").update({ score: score }).eq("id", currentRecordId);
+  }
+}
+
+async function renderBoard() {
+  const filter = document.getElementById("filterClass").value.trim().toUpperCase();
+  let query = supabaseClient.from("scores").select("*").neq("name", "HOST_PIN");
+  if(filter !== "") query = query.ilike("class", filter);
+  
+  let { data } = await query.order("score", { ascending:false }).limit(10);
+  if(!data) return;
+
+  document.getElementById("leaderboard").innerHTML = "<b>🏆 TOP PLAYERS</b><hr style='border:1px solid #3d2311;'>" +
+    data.map((d,i) => `<div><b>${i+1}.</b> ${d.name} - <b style='color:#ffca28;'>${d.score}</b></div>`).join('');
+}
+
+function toggleBoard() {
+  document.getElementById("boardPanel").classList.toggle("hidden");
+  if(!document.getElementById("boardPanel").classList.contains("hidden")) {
+    initWorms();
+    drawWormArena();
+  }
+}
+
+function bukaModalBuatKelas() { document.getElementById("modal-buat-kelas").style.display = "flex"; }
+function tutupModalBuatKelas() { document.getElementById("modal-buat-kelas").style.display = "none"; }
+
+async function prosesBuatKelas() {
+  const pin = document.getElementById("input-pin-baru").value;
+  if(pin.length < 3) return;
+
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; 
+  let code = "";
+  for(let i=0; i<5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+
+  tutupModalBuatKelas();
+
+  await supabaseClient.from("scores").insert([{ name: "HOST_PIN", class: code, score: 0, mode: pin }]);
+
+  isTeacherHost = true;
+  document.getElementById("createClassBtn").style.display = "none";
+  document.getElementById("scoreboardBtn").style.display = "none";
+  document.getElementById("top-menu").style.display = "none"; 
+  document.getElementById("boardPanel").classList.remove("hidden");
+  document.getElementById("filterClass").value = code;
+  syncHostChannel();
+  
+  munculkanAlert("✅ Class Created!", `Class Code: <b style='font-size:32px; color:#ffca28;'>${code}</b>`);
+}
+
+function munculkanAlert(j, p) {
+  document.getElementById("alert-title").innerHTML = j;
+  document.getElementById("alert-msg").innerHTML = p;
+  document.getElementById("custom-alert").style.display = "flex";
+}
+function tutupAlert() { document.getElementById("custom-alert").style.display = "none"; }
+</script>
+</body>
+</html>
