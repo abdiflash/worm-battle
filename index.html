@@ -3,61 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Worm Battle Class Arena</title>
+<title>3D Cute Worm Battle Class Arena</title>
 
 <!-- Fun Font for Kids -->
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-/* GARDEN / SOIL THEME */
 html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 100vh;
-  font-family: 'Fredoka', sans-serif;
-  background-color: #1a0f07;
-  background-image: radial-gradient(circle at top left, #2d1a0e, #140b05);
-  color: #fff;
-  text-align: center;
-  overflow-x: hidden;
+  margin: 0; padding: 0; width: 100%; min-height: 100vh;
+  font-family: 'Fredoka', sans-serif; background-color: #1a0f07;
+  color: #fff; text-align: center; overflow-x: hidden;
 }
 
 .main-wrapper {
-  width: 100%;
-  max-width: 650px;
-  margin: 0 auto;
-  padding: 30px 15px;
-  box-sizing: border-box;
+  width: 100%; max-width: 650px; margin: 0 auto; padding: 30px 15px; box-sizing: border-box;
 }
 
 h1 { margin: 0 0 15px 0; font-size: 30px; color: #ffca28; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
 
 .game-card {
-  background: rgba(45, 26, 14, 0.95);
-  border-radius: 24px;
-  padding: 25px 20px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-  border: 3px solid #4a2d18;
-  margin-bottom: 20px;
-  position: relative;
+  background: rgba(45, 26, 14, 0.95); border-radius: 24px; padding: 25px 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 3px solid #4a2d18; margin-bottom: 20px; position: relative;
 }
 
 button {
-  font-family: 'Fredoka', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  padding: 12px 20px;
-  margin: 5px;
-  border-radius: 16px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s ease-in-out;
-  color: #fff;
+  font-family: 'Fredoka', sans-serif; font-size: 16px; font-weight: 700;
+  padding: 12px 20px; margin: 5px; border-radius: 16px; border: none; cursor: pointer; transition: 0.15s; color: #fff;
 }
-
 button:active:not(:disabled) { transform: translateY(4px); }
 button:disabled { background: #4a382c !important; color: #8c7365 !important; cursor: not-allowed; }
 
@@ -68,68 +42,28 @@ button:disabled { background: #4a382c !important; color: #8c7365 !important; cur
 .btn-red { background: #ff5252; box-shadow: 0 5px 0 #c62828; }
 
 input, select {
-  padding: 12px;
-  border-radius: 16px;
-  border: 2px solid #5c3a21;
-  margin: 8px auto;
-  width: 90%;
-  max-width: 320px;
-  font-size: 16px;
-  font-family: 'Fredoka', sans-serif;
-  text-align: center;
-  box-sizing: border-box;
-  background: #140b05;
-  color: #fff;
-  display: block;
+  padding: 12px; border-radius: 16px; border: 2px solid #5c3a21; margin: 8px auto;
+  width: 90%; max-width: 320px; font-size: 16px; font-family: 'Fredoka', sans-serif;
+  text-align: center; box-sizing: border-box; background: #140b05; color: #fff; display: block;
 }
 
-/* WORM CANVAS ARENA (TANAH BUMI) */
-#wormCanvas {
-  background: #120903;
-  border-radius: 20px;
-  border: 3px solid #ffca28;
-  box-shadow: inset 0 0 25px rgba(0,0,0,0.9);
-  display: block;
-  margin: 15px auto;
-  max-width: 100%;
+/* 3D WORM CANVAS CONTAINER */
+#canvas3DContainer {
+  width: 100%; height: 320px; border-radius: 20px; border: 3px solid #ffca28;
+  overflow: hidden; margin: 15px 0; background: #000; position: relative;
 }
 
-.lobby-container {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 15px;
-}
-.team-column {
-  width: 48%;
-  background: #140b05;
-  border-radius: 16px;
-  padding: 10px;
-  border: 2px solid #3d2311;
-  box-sizing: border-box;
-  min-height: 100px;
-}
+.lobby-container { display: flex; justify-content: space-between; gap: 10px; margin-top: 15px; }
+.team-column { width: 48%; background: #140b05; border-radius: 16px; padding: 10px; border: 2px solid #3d2311; box-sizing: border-box; }
 .player-tag-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.player-tag {
-  padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; color: #fff;
-}
-.tag-red { background: #ff5252; }
-.tag-blue { background: #2979ff; }
+.player-tag { padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; color: #fff; }
+.tag-red { background: #ff5252; } .tag-blue { background: #2979ff; }
 
-.modal-overlay {
-  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-  background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center;
-}
-.modal-box {
-  background: #2d1a0e; padding: 25px; border-radius: 24px; width: 90%; max-width: 340px; 
-  border: 3px solid #ffca28; text-align: center; color: #fff;
-}
+.modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; }
+.modal-box { background: #2d1a0e; padding: 25px; border-radius: 24px; width: 90%; max-width: 340px; border: 3px solid #ffca28; text-align: center; }
 .hidden { display: none !important; }
 
-#fullscreen-btn {
-  position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.1);
-  color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; padding: 6px 12px; font-size: 12px;
-}
+#fullscreen-btn { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; padding: 6px 12px; font-size: 12px; }
 </style>
 </head>
 
@@ -137,9 +71,9 @@ input, select {
 <button id="fullscreen-btn">🔍 Full Screen</button>
 
 <div class="main-wrapper">
-  <h1>🪱 Worm Battle Class Arena</h1>
+  <h1>🪱 3D Worm Battle Arena</h1>
 
-  <!-- FORM SISWA -->
+  <!-- STUDENT MENU -->
   <div id="top-menu" class="game-card">
     <button id="createClassBtn" class="btn-orange" onclick="bukaModalBuatKelas()" style="width: 100%; margin-bottom:15px;">
       👨‍🏫 TEACHER: CREATE CLASS CODE
@@ -161,16 +95,16 @@ input, select {
     <button id="startBtn" class="btn-purple" onclick="startGame()" disabled>START GAME</button>
   </div>
 
-  <!-- AREA KUIS SISWA -->
+  <!-- QUIZ AREA SISWA -->
   <div id="quizArea" class="game-card hidden">
     <h2 id="questionText" style="color:#ffca28;">Loading question...</h2>
     <div id="answerOptions" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px;"></div>
     <div id="quizMsg" style="margin-top:15px; font-weight:bold;"></div>
   </div>
 
-  <!-- LIVEBOARD GURU (PROYEKTOR WORM BATTLE) -->
+  <!-- LIVEBOARD GURU (PROYEKTOR 3D WORM BATTLE) -->
   <div id="boardPanel" class="game-card hidden">
-    <h3>📊 Live Worm Battle Arena</h3>
+    <h3>📊 Live 3D Worm Arena</h3>
     
     <div style="display:flex; justify-content:center; gap:5px; margin-bottom:10px;">
       <input id="filterClass" placeholder="CLASS CODE..." style="width:50%; margin:0; text-transform: uppercase;" oninput="syncHostChannel()">
@@ -181,8 +115,8 @@ input, select {
       🚀 START WORM BATTLE (ALL STUDENTS)
     </button>
 
-    <!-- CANVAS WORM BATTLE 2D ARENA -->
-    <canvas id="wormCanvas" width="550" height="320"></canvas>
+    <!-- CONTAINER THREE.JS 3D -->
+    <div id="canvas3DContainer"></div>
 
     <div class="lobby-container">
       <div class="team-column" style="border-color: #ff5252;">
@@ -194,33 +128,17 @@ input, select {
         <div id="blueTeamList" class="player-tag-list"></div>
       </div>
     </div>
-
-    <div style="background:#fff; border-radius: 16px; padding:10px; margin:15px 0;">
-        <canvas id="chart" width="200" height="200"></canvas>
-    </div>
     
-    <div id="leaderboard" style="text-align:left; background:#140b05; padding:12px; border-radius:12px;"></div>
+    <div id="leaderboard" style="text-align:left; background:#140b05; padding:12px; border-radius:12px; margin-top:15px;"></div>
   </div>
 </div>
 
 <!-- MODALS -->
 <div id="custom-alert" class="modal-overlay">
-  <div class="modal-box">
-    <h2 id="alert-title">Info</h2>
-    <p id="alert-msg"></p>
-    <button class="btn-blue" onclick="tutupAlert()" style="width:100%;">Close</button>
-  </div>
+  <div class="modal-box"><h2 id="alert-title">Info</h2><p id="alert-msg"></p><button class="btn-blue" onclick="tutupAlert()" style="width:100%;">Close</button></div>
 </div>
-
 <div id="modal-buat-kelas" class="modal-overlay">
-  <div class="modal-box">
-    <h2 style="color:#ff9800;">👨‍🏫 Create Class</h2>
-    <input type="text" id="input-pin-baru" placeholder="Enter PIN (e.g. 1234)">
-    <div style="display:flex; gap:10px; margin-top:15px;">
-      <button class="btn-red" onclick="tutupModalBuatKelas()" style="width:50%;">Cancel</button>
-      <button class="btn-green" onclick="prosesBuatKelas()" style="width:50%;">Create</button>
-    </div>
-  </div>
+  <div class="modal-box"><h2 style="color:#ff9800;">👨‍🏫 Create Class</h2><input type="text" id="input-pin-baru" placeholder="Enter PIN"><div style="display:flex; gap:10px; margin-top:15px;"><button class="btn-red" onclick="tutupModalBuatKelas()" style="width:50%;">Cancel</button><button class="btn-green" onclick="prosesBuatKelas()" style="width:50%;">Create</button></div></div>
 </div>
 
 <script>
@@ -228,123 +146,190 @@ const SUPABASE_URL = "https://huppyicherwdhgxrcyav.supabase.co";
 const SUPABASE_KEY = "sb_publishable_OJPFFYPGJrDUkjD-gVMOOw_GET4MdOW";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let realtimeChannel = null;
-let currentJoinedClass = "";
-let isTeacherHost = false;
-let score = 0, currentRecordId = null;
-let autoRefreshTimer = null;
-let animationFrameId = null;
+let realtimeChannel = null, currentJoinedClass = "", isTeacherHost = false;
+let score = 0, currentRecordId = null, autoRefreshTimer = null;
 
-/* WORM GAME STATE (CANVAS 2D ARENA) */
-const canvas = document.getElementById("wormCanvas");
-const ctx = canvas.getContext("2d");
+/* THREE.JS 3D ENGINE */
+let scene, camera, renderer;
+let redWorm3D = { meshGroup: new THREE.Group(), segments: [], length: 10, x: -10, z: 0, angle: 0, speed: 0.15, color: 0xff5252 };
+let blueWorm3D = { meshGroup: new THREE.Group(), segments: [], length: 10, x: 10, z: 0, angle: Math.PI, speed: 0.15, color: 0x2979ff };
+let foods3D = [];
 
-let foods = [];
-let redWorm = { x: 100, y: 160, length: 10, angle: 0, speed: 2, segments: [], color: '#ff5252' };
-let blueWorm = { x: 450, y: 160, length: 10, angle: Math.PI, speed: 2, segments: [], color: '#2979ff' };
+function init3DScene() {
+  const container = document.getElementById("canvas3DContainer");
+  container.innerHTML = "";
+  
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x140b05);
 
-function initWorms() {
-  redWorm.segments = Array(redWorm.length).fill({x: redWorm.x, y: redWorm.y});
-  blueWorm.segments = Array(blueWorm.length).fill({x: blueWorm.x, y: blueWorm.y});
-  generateFoods();
+  camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+  camera.position.set(0, 35, 25);
+  camera.lookAt(0, 0, 0);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  container.appendChild(renderer.domElement);
+
+  // Lighting
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+  scene.add(ambientLight);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  dirLight.position.set(10, 30, 10);
+  scene.add(dirLight);
+
+  // Ground Arena
+  const groundGeo = new THREE.PlaneGeometry(40, 25);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x1f1108, roughness: 0.8 });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  scene.add(ground);
+
+  // Build 3D Worms
+  buildWorm3D(redWorm3D);
+  buildWorm3D(blueWorm3D);
+  spawn3DFoods();
+
+  animate3D();
 }
 
-function generateFoods() {
-  foods = [];
-  for(let i=0; i<15; i++) {
-    foods.push({
-      x: Math.random() * (canvas.width - 40) + 20,
-      y: Math.random() * (canvas.height - 40) + 20,
-      color: ['#ffca28', '#8bc34a', '#e91e63'][Math.floor(Math.random()*3)]
-    });
+function createCuteHead(colorHex) {
+  const headGroup = new THREE.Group();
+  
+  // Head Sphere
+  const geo = new THREE.SphereGeometry(0.8, 16, 16);
+  const mat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.3 });
+  const headMesh = new THREE.Mesh(geo, mat);
+  headGroup.add(headMesh);
+
+  // Cute Eyes (White + Black pupil)
+  const eyeGeo = new THREE.SphereGeometry(0.25, 8, 8);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const pupilGeo = new THREE.SphereGeometry(0.12, 8, 8);
+  const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+  // Left Eye
+  const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+  leftEye.position.set(-0.35, 0.35, 0.65);
+  const leftPupil = new THREE.Mesh(pupilGeo, pupilMat);
+  leftPupil.position.set(-0.35, 0.35, 0.85);
+  headGroup.add(leftEye); headGroup.add(leftPupil);
+
+  // Right Eye
+  const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+  rightEye.position.set(0.35, 0.35, 0.65);
+  const rightPupil = new THREE.Mesh(pupilGeo, pupilMat);
+  rightPupil.position.set(0.35, 0.35, 0.85);
+  headGroup.add(rightEye); headGroup.add(rightPupil);
+
+  return headGroup;
+}
+
+function buildWorm3D(worm) {
+  scene.add(worm.meshGroup);
+  worm.segments = [];
+  
+  for(let i=0; i<30; i++) {
+    let mesh;
+    if(i === 0) {
+      mesh = createCuteHead(worm.color);
+    } else {
+      const scale = Math.max(0.3, 0.75 - (i * 0.015));
+      const geo = new THREE.SphereGeometry(scale, 12, 12);
+      const mat = new THREE.MeshStandardMaterial({ color: worm.color, roughness: 0.4 });
+      mesh = new THREE.Mesh(geo, mat);
+    }
+    mesh.position.set(worm.x, 0.8, worm.z);
+    worm.meshGroup.add(mesh);
+    worm.segments.push(mesh);
   }
 }
 
-function updateWormPhysics() {
-  [redWorm, blueWorm].forEach(w => {
-    // Gerakan AI menuju makanan terdekat
-    let target = foods[0] || {x: canvas.width/2, y: canvas.height/2};
-    let dx = target.x - w.x;
-    let dy = target.y - w.y;
-    w.angle = Math.atan2(dy, dx);
+function spawn3DFoods() {
+  foods3D.forEach(f => scene.remove(f.mesh));
+  foods3D = [];
+  const foodColors = [0xffca28, 0x8bc34a, 0xe91e63];
+  for(let i=0; i<12; i++) {
+    const geo = new THREE.SphereGeometry(0.4, 8, 8);
+    const mat = new THREE.MeshStandardMaterial({ color: foodColors[i % 3], emissive: 0x333333 });
+    const mesh = new THREE.Mesh(geo, mat);
+    const x = (Math.random() - 0.5) * 34;
+    const z = (Math.random() - 0.5) * 20;
+    mesh.position.set(x, 0.4, z);
+    scene.add(mesh);
+    foods3D.push({ mesh: mesh, x: x, z: z });
+  }
+}
 
-    // Kecepatan ekstra untuk cacing yang lebih panjang (Mengejar Cacing Pendek)
-    let isChaser = (w === redWorm && redWorm.length > blueWorm.length) || 
-                   (w === blueWorm && blueWorm.length > redWorm.length);
-    let speed = isChaser ? 3.2 : 1.8;
+function animate3D() {
+  requestAnimationFrame(animate3D);
 
+  // Update Worm Physics & Steering AI
+  [redWorm3D, blueWorm3D].forEach(w => {
+    // Determine Target: If longer than rival, target rival's head!
+    let rival = (w === redWorm3D) ? blueWorm3D : redWorm3D;
+    let targetX, targetZ;
+
+    if (w.length > rival.length) {
+      // CHASE RIVAL WORM!
+      targetX = rival.x;
+      targetZ = rival.z;
+    } else {
+      // CHASE FOOD
+      let f = foods3D[0] || {x: 0, z: 0};
+      targetX = f.x; targetZ = f.z;
+    }
+
+    let dx = targetX - w.x;
+    let dz = targetZ - w.z;
+    w.angle = Math.atan2(dz, dx);
+
+    let speed = (w.length > rival.length) ? 0.18 : 0.12;
     w.x += Math.cos(w.angle) * speed;
-    w.y += Math.sin(w.angle) * speed;
+    w.z += Math.sin(w.angle) * speed;
 
-    // Batas Layar Arena
-    if(w.x < 10) w.x = canvas.width - 10;
-    if(w.x > canvas.width - 10) w.x = 10;
-    if(w.y < 10) w.y = canvas.height - 10;
-    if(w.y > canvas.height - 10) w.y = 10;
+    // Boundaries
+    if(w.x < -18) w.x = 18; if(w.x > 18) w.x = -18;
+    if(w.z < -11) w.z = 11; if(w.z > 11) w.z = -11;
 
-    // Update Segmen Tubuh Cacing
-    w.segments.unshift({x: w.x, y: w.y});
-    while(w.segments.length > w.length) w.segments.pop();
+    // Update Segments Position (Worm Smooth Follow)
+    w.segments[0].position.set(w.x, 0.8, w.z);
+    w.segments[0].rotation.y = -w.angle + Math.PI/2;
 
-    // Deteksi Cacing Memakan Makanan
-    foods.forEach((f, idx) => {
-      if(Math.hypot(w.x - f.x, w.y - f.y) < 15) {
-        w.length += 1;
-        foods.splice(idx, 1);
-        foods.push({
-          x: Math.random() * (canvas.width - 40) + 20,
-          y: Math.random() * (canvas.height - 40) + 20,
-          color: '#ffca28'
-        });
+    for(let i = w.segments.length - 1; i > 0; i--) {
+      if(i < w.length) {
+        w.segments[i].visible = true;
+        let prev = w.segments[i-1].position;
+        w.segments[i].position.lerp(prev, 0.35);
+      } else {
+        w.segments[i].visible = false;
+      }
+    }
+
+    // Food Collision
+    foods3D.forEach((f, idx) => {
+      if(Math.hypot(w.x - f.x, w.z - f.z) < 1.2) {
+        w.length = Math.min(30, w.length + 1);
+        f.x = (Math.random() - 0.5) * 34;
+        f.z = (Math.random() - 0.5) * 20;
+        f.mesh.position.set(f.x, 0.4, f.z);
       }
     });
   });
 
-  // Deteksi Benturan/Gigitan: Cacing Panjang Menggigit Cacing Pendek
-  let dist = Math.hypot(redWorm.x - blueWorm.x, redWorm.y - blueWorm.y);
-  if(dist < 25) {
-    if(redWorm.length > blueWorm.length && blueWorm.length > 5) {
-      redWorm.length += 1;
-      blueWorm.length -= 1;
-    } else if(blueWorm.length > redWorm.length && redWorm.length > 5) {
-      blueWorm.length += 1;
-      redWorm.length -= 1;
+  // Chasing Clash (Bite segment)
+  let dist = Math.hypot(redWorm3D.x - blueWorm3D.x, redWorm3D.z - blueWorm3D.z);
+  if(dist < 1.8) {
+    if(redWorm3D.length > blueWorm3D.length && blueWorm3D.length > 5) {
+      redWorm3D.length += 1; blueWorm3D.length -= 1;
+    } else if(blueWorm3D.length > redWorm3D.length && redWorm3D.length > 5) {
+      blueWorm3D.length += 1; redWorm3D.length -= 1;
     }
   }
 
-  document.getElementById("redLength").innerText = redWorm.length;
-  document.getElementById("blueLength").innerText = blueWorm.length;
-}
+  document.getElementById("redLength").innerText = redWorm3D.length;
+  document.getElementById("blueLength").innerText = blueWorm3D.length;
 
-function drawWormArena() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Gambar Makanan Organik
-  foods.forEach(f => {
-    ctx.beginPath();
-    ctx.arc(f.x, f.y, 6, 0, Math.PI * 2);
-    ctx.fillStyle = f.color;
-    ctx.fill();
-    ctx.closePath();
-  });
-
-  // Gambar Cacing (Bentuk Segmen Bulat Lembut)
-  [redWorm, blueWorm].forEach(w => {
-    w.segments.forEach((seg, i) => {
-      ctx.beginPath();
-      // Kepala cacing sedikit lebih besar
-      let radius = i === 0 ? 11 : Math.max(5, 9 - (i * 0.15));
-      ctx.arc(seg.x, seg.y, radius, 0, Math.PI * 2);
-      ctx.fillStyle = w.color;
-      ctx.shadowBlur = i === 0 ? 8 : 0;
-      ctx.shadowColor = w.color;
-      ctx.fill();
-      ctx.closePath();
-    });
-  });
-
-  updateWormPhysics();
-  animationFrameId = requestAnimationFrame(drawWormArena);
+  renderer.render(scene, camera);
 }
 
 /* CEK INPUT & PENGUNCIAN TOMBOL PRESISI */
@@ -361,8 +346,7 @@ function cekInput() {
     scoreboardBtn.disabled = true; scoreboardBtn.style.display = "none";
 
     if (nama !== "" && kelas !== "") {
-      startBtn.disabled = true;
-      startBtn.innerText = "⏳ WAITING FOR TEACHER...";
+      startBtn.disabled = true; startBtn.innerText = "⏳ WAITING FOR TEACHER...";
       connectRealtimeChannel(kelas, nama, team);
     }
   } else {
@@ -431,11 +415,9 @@ async function triggerHostStartMatch() {
   setTimeout(() => {
     if (realtimeChannel) {
       realtimeChannel.send({ type: 'broadcast', event: 'start_battle' });
-      munculkanAlert("🚀 BATTLE STARTED!", "Worm Arena is Live on Board!");
+      munculkanAlert("🚀 BATTLE STARTED!", "3D Worm Arena is Live on Board!");
       
-      initWorms();
-      if(animationFrameId) cancelAnimationFrame(animationFrameId);
-      drawWormArena();
+      init3DScene();
 
       if(autoRefreshTimer) clearInterval(autoRefreshTimer);
       autoRefreshTimer = setInterval(renderBoard, 1000);
@@ -468,10 +450,10 @@ function generateQuiz() {
 async function checkAnswer(val) {
   if (val === currentAns) {
     score += 10;
-    document.getElementById("quizMsg").innerHTML = "<span style='color:#4caf50;'>✨ CORRECT! +10 (WORM GREW!)</span>";
+    document.getElementById("quizMsg").innerHTML = "<span style='color:#4caf50;'>✨ CORRECT! +10 (BOOSTED WORM!)</span>";
     let team = document.getElementById("teamSelect").value;
-    if (team === "🔴") redWorm.length += 1;
-    if (team === "🔵") blueWorm.length += 1;
+    if (team === "🔴") redWorm3D.length = Math.min(30, redWorm3D.length + 1);
+    if (team === "🔵") blueWorm3D.length = Math.min(30, blueWorm3D.length + 1);
     syncScoreToDatabase();
   } else {
     document.getElementById("quizMsg").innerHTML = "<span style='color:#ff5252;'>❌ WRONG!</span>";
@@ -489,7 +471,7 @@ async function syncScoreToDatabase() {
 
   if(!currentRecordId) {
     const { data } = await supabaseClient.from("scores").insert([{
-      name: pTeam + " " + pName, class: pClass, score: score, mode: "worm"
+      name: pTeam + " " + pName, class: pClass, score: score, mode: "3dworm"
     }]).select();
     if(data && data.length > 0) currentRecordId = data[0].id;
   } else {
@@ -512,8 +494,7 @@ async function renderBoard() {
 function toggleBoard() {
   document.getElementById("boardPanel").classList.toggle("hidden");
   if(!document.getElementById("boardPanel").classList.contains("hidden")) {
-    initWorms();
-    drawWormArena();
+    init3DScene();
   }
 }
 
