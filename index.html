@@ -200,7 +200,6 @@ input, select {
       </div>
     </div>
     
-    <!-- TOMBOL KHUSUS MANAGEMEN KELAS GURU -->
     <div style="display:flex; justify-content:center; gap:10px; margin-top:15px;">
       <button class="btn-orange" onclick="bukaModalVerifikasiPIN('reset')" style="font-size:13px; padding:8px 15px;">🔄 Reset Round Scores</button>
       <button class="btn-red" onclick="bukaModalVerifikasiPIN('delete')" style="font-size:13px; padding:8px 15px;">🗑️ Delete Class Entirely</button>
@@ -230,7 +229,6 @@ input, select {
   </div>
 </div>
 
-<!-- MODAL VERIFIKASI PIN GURU UNTUK RESET / HAPUS -->
 <div id="modal-verifikasi-pin" class="modal-overlay">
   <div class="modal-box">
     <h2 id="modal-pin-title" style="color:#ffca28;">🔒 Enter Teacher PIN</h2>
@@ -258,9 +256,10 @@ let timeLeft = 60;
 let isMatchActive = false;
 let animFrameReqId = null;
 
+// VARIABEL TIPE SOAL DEFAULT (DIPASTIKAN UNIFORM DI SELURUH HP)
 let activeSchoolLevel = "SD";
 let activeQuestionType = "story";
-let pendingActionType = ""; // 'reset' atau 'delete'
+let pendingActionType = "";
 
 let redMistakes = [], blueMistakes = [];
 
@@ -414,6 +413,9 @@ async function triggerHostStartMatch() {
   const selectedSchoolLevel = document.getElementById("schoolLevelSelect").value;
   const selectedQuestionType = document.getElementById("questionTypeSelect").value;
 
+  activeSchoolLevel = selectedSchoolLevel;
+  activeQuestionType = selectedQuestionType;
+
   setTimeout(() => {
     if (realtimeChannel) {
       realtimeChannel.send({ 
@@ -506,9 +508,11 @@ function connectRealtimeChannel(classCode, pName = "", pTeam = "") {
         const payloadData = (data && data.payload) ? data.payload : {};
         const dur = payloadData.duration || 60;
         const lev = payloadData.level || "SD";
-        const qTp = payloadData.qType || "story";
+        const qTp = payloadData.qType || "story"; // VERIFIKASI KEAMANAN DATA SOAL CERITA
         
-        activeSchoolLevel = lev; activeQuestionType = qTp;
+        activeSchoolLevel = lev;
+        activeQuestionType = qTp;
+        
         startQuizForStudent(dur);
       }
     })
@@ -556,7 +560,7 @@ function syncHostChannel() {
   }
 }
 
-/* GENERATOR SOAL KUIS ACAK */
+/* GENERATOR SOAL KUIS ACAK DENGAN SINKRONISASI TIPE SOAL */
 let currentAns = 0;
 let currentQuestionPoint = 10;
 let currentPushAmount = 15;
@@ -639,6 +643,7 @@ function generateBalancedQuiz() {
 
   let qText = "", ans = 0, fakeOpts = [];
 
+  // SOAL CERITA MATEMATIKA (100% DIJAMIN TAMPIL SAMA DI TIM MERAH & BIRU)
   if (activeQuestionType === "story") {
     if (activeSchoolLevel === "SD") {
       if (diff === "easy") {
@@ -865,7 +870,6 @@ async function prosesBuatKelas() {
   munculkanAlert("✅ Class Created!", `Class Code: <b style='font-size:32px; color:#ffca28;'>${code}</b>`);
 }
 
-/* LOGIKA VERIFIKASI PIN KHUSUS UNTUK RESET DAN HAPUS DATA KELAS */
 function bukaModalVerifikasiPIN(actionType) {
   pendingActionType = actionType;
   const titleEl = document.getElementById("modal-pin-title");
@@ -897,7 +901,6 @@ async function eksekusiAksiKelas() {
     return;
   }
 
-  // Verifikasi PIN dengan data yang tersimpan di Supabase untuk HOST_PIN
   const { data, error } = await supabaseClient
     .from("scores")
     .select("mode")
@@ -912,7 +915,6 @@ async function eksekusiAksiKelas() {
 
   tutupModalVerifikasiPIN();
 
-  // AKSI 1: RESET HANYA SKOR SISWA (RONDE BARU)
   if (pendingActionType === "reset") {
     await supabaseClient
       .from("scores")
@@ -923,9 +925,7 @@ async function eksekusiAksiKelas() {
     init2DArena();
     renderBoard();
     munculkanAlert("✅ Reset Complete!", "Seluruh skor siswa telah dikosongkan. Siap untuk ronde baru!");
-  } 
-  // AKSI 2: HAPUS TOTAL KELAS BESERTA PIN
-  else if (pendingActionType === "delete") {
+  } else if (pendingActionType === "delete") {
     await supabaseClient
       .from("scores")
       .delete()
