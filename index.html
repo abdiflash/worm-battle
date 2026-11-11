@@ -59,6 +59,12 @@ input, select {
   z-index: 10;
 }
 
+.student-timer-badge {
+  display: inline-block; background: rgba(0,0,0,0.5); padding: 4px 15px;
+  border-radius: 12px; border: 1px solid #ffca28; color: #ffca28;
+  font-size: 18px; font-weight: bold; margin-bottom: 10px;
+}
+
 .lobby-container { display: flex; justify-content: space-between; gap: 10px; margin-top: 15px; }
 .team-column { width: 48%; background: #140b05; border-radius: 16px; padding: 10px; border: 2px solid #3d2311; box-sizing: border-box; }
 .player-tag-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
@@ -103,6 +109,7 @@ input, select {
 
   <!-- QUIZ AREA SISWA -->
   <div id="quizArea" class="game-card hidden">
+    <div id="studentTimerDisplay" class="student-timer-badge">⏱️ Time: 60s</div>
     <h2 id="questionText" style="color:#ffca28;">Loading question...</h2>
     <div id="answerOptions" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px;"></div>
     <div id="quizMsg" style="margin-top:15px; font-weight:bold;"></div>
@@ -120,7 +127,7 @@ input, select {
     <!-- PILIHAN WAKTU PERTANDINGAN KHUSUS GURU -->
     <div style="margin-bottom:10px;">
       <label style="color:#ffca28; font-weight:bold; font-size:14px;">⏱️ Match Duration:</label>
-      <select id="matchTimerSelect" style="width: auto; display: inline-block; padding: 8px 15px; margin-left: 10px;">
+      <select id="matchTimerSelect" onchange="updateTimerHUDPreview()" style="width: auto; display: inline-block; padding: 8px 15px; margin-left: 10px;">
         <option value="60">⏱️ 60 Seconds (Standard)</option>
         <option value="90">⏱️ 90 Seconds (Medium)</option>
         <option value="120">⏱️ 120 Seconds (Long)</option>
@@ -171,10 +178,17 @@ let realtimeChannel = null, currentJoinedClass = "", isTeacherHost = false;
 let score = 0, currentRecordId = null, autoRefreshTimer = null;
 
 let matchTimer = null;
+let studentTimerInterval = null;
 let timeLeft = 60;
 let isMatchActive = false;
 
-/* WEB AUDIO API - SOUND EFFECTS SYNTHESIZER */
+/* UPDATE TAMPILAN PREVIEW TIMER DI PROYEKTOR HOST */
+function updateTimerHUDPreview() {
+  const val = document.getElementById("matchTimerSelect").value;
+  document.getElementById("timerHUD").innerText = `⏱️ ${val}s`;
+}
+
+/* WEB AUDIO API - SYNTH */
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
 
@@ -405,7 +419,12 @@ async function triggerHostStartMatch() {
 
   setTimeout(() => {
     if (realtimeChannel) {
-      realtimeChannel.send({ type: 'broadcast', event: 'start_battle' });
+      // KIRIM BROADCAST WAKTU DURASI KE SELURUH HP SISWA
+      realtimeChannel.send({ 
+        type: 'broadcast', 
+        event: 'start_battle',
+        payload: { duration: selectedDuration }
+      });
       
       init3DScene();
       isMatchActive = true;
@@ -444,7 +463,6 @@ function endMatchBattle() {
     winningTeamEmoji = "DRAW";
   }
 
-  // BROADCAST BROADCAST SIARAN GAME OVER KESELURUH SISWA DENGAN DATA PEMENANG
   if (realtimeChannel) {
     realtimeChannel.send({
       type: 'broadcast',
@@ -501,8 +519,11 @@ function connectRealtimeChannel(classCode, pName = "", pTeam = "") {
 
   realtimeChannel
     .on('presence', { event: 'sync' }, () => updateLobbyUI(realtimeChannel.presenceState()))
-    .on('broadcast', { event: 'start_battle' }, () => {
-      if (!isTeacherHost) startQuizForStudent();
+    .on('broadcast', { event: 'start_battle' }, (payload) => {
+      if (!isTeacherHost) {
+        const dur = (payload && payload.payload && payload.payload.duration) ? payload.payload.duration : 60;
+        startQuizForStudent(dur);
+      }
     })
     .on('broadcast', { event: 'student_correct_answer' }, (payload) => {
       if (isTeacherHost) {
@@ -544,9 +565,24 @@ function syncHostChannel() {
 }
 
 let currentAns = 0;
-function startQuizForStudent() {
+function startQuizForStudent(duration) {
   document.getElementById("top-menu").classList.add("hidden");
   document.getElementById("quizArea").classList.remove("hidden");
+  
+  // JALANKAN TIMER DI HP SISWA
+  let studentTimeLeft = duration;
+  document.getElementById("studentTimerDisplay").innerText = `⏱️ Time: ${studentTimeLeft}s`;
+  
+  clearInterval(studentTimerInterval);
+  studentTimerInterval = setInterval(() => {
+    studentTimeLeft--;
+    if (studentTimeLeft >= 0) {
+      document.getElementById("studentTimerDisplay").innerText = `⏱️ Time: ${studentTimeLeft}s`;
+    } else {
+      clearInterval(studentTimerInterval);
+    }
+  }, 1000);
+
   generateQuiz();
 }
 
@@ -588,8 +624,8 @@ async function checkAnswer(val) {
   }, 800);
 }
 
-// PENANGANAN GAME OVER & MENSAMPELKAN MODAL HASIL PADA HP SISWA
 function handleStudentGameOver(data) {
+  clearInterval(studentTimerInterval);
   const myTeam = document.getElementById("teamSelect").value;
   let resultStatusText = "";
 
@@ -617,7 +653,6 @@ function resetStudentToLobby() {
   document.getElementById("quizArea").classList.add("hidden");
   document.getElementById("top-menu").classList.remove("hidden");
   
-  // Reset tombol modal kembali normal
   const alertCloseBtn = document.getElementById("alertCloseBtn");
   alertCloseBtn.innerText = "Close";
   alertCloseBtn.onclick = tutupAlert;
@@ -658,6 +693,7 @@ function toggleBoard() {
   document.getElementById("boardPanel").classList.toggle("hidden");
   if(!document.getElementById("boardPanel").classList.contains("hidden")) {
     init3DScene();
+    updateTimerHUDPreview();
   }
 }
 
