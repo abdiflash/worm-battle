@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>3D Worm Battle Class Arena</title>
 
+<!-- Fun Font for Kids -->
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -51,7 +52,6 @@ input, select {
   overflow: hidden; margin: 15px 0; background: #000; position: relative;
 }
 
-/* TIMER HUD DI ARENA PROYEKTOR */
 #timerHUD {
   position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
   background: rgba(0,0,0,0.7); padding: 6px 18px; border-radius: 20px;
@@ -117,11 +117,20 @@ input, select {
       <button class="btn-blue" onclick="renderBoard()" style="margin:0;">Search</button>
     </div>
 
+    <!-- PILIHAN WAKTU PERTANDINGAN KHUSUS GURU -->
+    <div style="margin-bottom:10px;">
+      <label style="color:#ffca28; font-weight:bold; font-size:14px;">⏱️ Match Duration:</label>
+      <select id="matchTimerSelect" style="width: auto; display: inline-block; padding: 8px 15px; margin-left: 10px;">
+        <option value="60">⏱️ 60 Seconds (Standard)</option>
+        <option value="90">⏱️ 90 Seconds (Medium)</option>
+        <option value="120">⏱️ 120 Seconds (Long)</option>
+      </select>
+    </div>
+
     <button id="hostStartBtn" class="btn-green" onclick="triggerHostStartMatch()" style="width: 100%; font-size: 16px; padding: 12px; margin-bottom: 10px;">
       🚀 START WORM BATTLE (ALL STUDENTS)
     </button>
 
-    <!-- CONTAINER THREE.JS 3D + TIMER HUD -->
     <div id="canvas3DContainer">
       <div id="timerHUD">⏱️ 60s</div>
     </div>
@@ -143,7 +152,11 @@ input, select {
 
 <!-- MODALS -->
 <div id="custom-alert" class="modal-overlay">
-  <div class="modal-box"><h2 id="alert-title">Info</h2><p id="alert-msg"></p><button class="btn-blue" onclick="tutupAlert()" style="width:100%;">Close</button></div>
+  <div class="modal-box">
+    <h2 id="alert-title">Info</h2>
+    <p id="alert-msg"></p>
+    <button id="alertCloseBtn" class="btn-blue" onclick="tutupAlert()" style="width:100%;">Close</button>
+  </div>
 </div>
 <div id="modal-buat-kelas" class="modal-overlay">
   <div class="modal-box"><h2 style="color:#ff9800;">👨‍🏫 Create Class</h2><input type="text" id="input-pin-baru" placeholder="Enter PIN"><div style="display:flex; gap:10px; margin-top:15px;"><button class="btn-red" onclick="tutupModalBuatKelas()" style="width:50%;">Cancel</button><button class="btn-green" onclick="prosesBuatKelas()" style="width:50%;">Create</button></div></div>
@@ -157,16 +170,53 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let realtimeChannel = null, currentJoinedClass = "", isTeacherHost = false;
 let score = 0, currentRecordId = null, autoRefreshTimer = null;
 
-/* TIMER CONTROL */
 let matchTimer = null;
 let timeLeft = 60;
 let isMatchActive = false;
 
+/* WEB AUDIO API - SOUND EFFECTS SYNTHESIZER */
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) audioCtx = new AudioContext();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playEatSound() {
+  initAudio();
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12);
+  gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+}
+
+function playBiteSound() {
+  initAudio();
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(280, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.2);
+  gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+}
+
 /* THREE.JS 3D ENGINE */
 let scene, camera, renderer;
-let redWorm3D = { meshGroup: new THREE.Group(), segments: [], length: 10, x: -10, z: 0, angle: 0, speed: 0.15, color: 0xff5252 };
-let blueWorm3D = { meshGroup: new THREE.Group(), segments: [], length: 10, x: 10, z: 0, angle: Math.PI, speed: 0.15, color: 0x2979ff };
-let foods3D = [];
+let redWorm3D = { meshGroup: null, segments: [], length: 10, x: -10, z: 0, angle: 0, speed: 0.15, color: 0xff3333 };
+let blueWorm3D = { meshGroup: null, segments: [], length: 10, x: 10, z: 0, angle: Math.PI, speed: 0.15, color: 0x3388ff };
+let activeFoods = [];
+let lastBiteTime = 0;
 
 function init3DScene() {
   const container = document.getElementById("canvas3DContainer");
@@ -185,9 +235,9 @@ function init3DScene() {
   renderer.setSize(container.clientWidth, container.clientHeight);
   container.appendChild(renderer.domElement);
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
   scene.add(ambientLight);
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
   dirLight.position.set(10, 30, 10);
   scene.add(dirLight);
 
@@ -197,17 +247,16 @@ function init3DScene() {
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
 
-  buildWorm3D(redWorm3D);
-  buildWorm3D(blueWorm3D);
-  spawn3DFoods();
+  buildWorm3D(redWorm3D, -10, 0);
+  buildWorm3D(blueWorm3D, 10, Math.PI);
 
   animate3D();
 }
 
 function createCuteHead(colorHex) {
   const headGroup = new THREE.Group();
-  const geo = new THREE.SphereGeometry(0.8, 16, 16);
-  const mat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.3 });
+  const geo = new THREE.SphereGeometry(0.85, 16, 16);
+  const mat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.2 });
   const headMesh = new THREE.Mesh(geo, mat);
   headGroup.add(headMesh);
 
@@ -227,13 +276,20 @@ function createCuteHead(colorHex) {
   return headGroup;
 }
 
-function buildWorm3D(worm) {
+function buildWorm3D(worm, startX, startAngle) {
+  if (worm.meshGroup) scene.remove(worm.meshGroup);
+  
+  worm.meshGroup = new THREE.Group();
   scene.add(worm.meshGroup);
+  
   worm.segments = [];
   worm.length = 10;
-  worm.x = (worm === redWorm3D) ? -10 : 10;
+  worm.x = startX;
   worm.z = 0;
-  
+  worm.angle = startAngle;
+
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: worm.color, roughness: 0.3 });
+
   for(let i=0; i<30; i++) {
     let mesh;
     if(i === 0) {
@@ -241,8 +297,7 @@ function buildWorm3D(worm) {
     } else {
       const scale = Math.max(0.3, 0.75 - (i * 0.015));
       const geo = new THREE.SphereGeometry(scale, 12, 12);
-      const mat = new THREE.MeshStandardMaterial({ color: worm.color, roughness: 0.4 });
-      mesh = new THREE.Mesh(geo, mat);
+      mesh = new THREE.Mesh(geo, bodyMaterial);
     }
     mesh.position.set(worm.x, 0.8, worm.z);
     worm.meshGroup.add(mesh);
@@ -250,42 +305,40 @@ function buildWorm3D(worm) {
   }
 }
 
-function spawn3DFoods() {
-  foods3D.forEach(f => scene.remove(f.mesh));
-  foods3D = [];
-  const foodColors = [0xffca28, 0x8bc34a, 0xe91e63];
-  for(let i=0; i<12; i++) {
-    const geo = new THREE.SphereGeometry(0.4, 8, 8);
-    const mat = new THREE.MeshStandardMaterial({ color: foodColors[i % 3], emissive: 0x333333 });
-    const mesh = new THREE.Mesh(geo, mat);
-    const x = (Math.random() - 0.5) * 34;
-    const z = (Math.random() - 0.5) * 20;
-    mesh.position.set(x, 0.4, z);
-    scene.add(mesh);
-    foods3D.push({ mesh: mesh, x: x, z: z });
-  }
+function spawnFoodForTeam(teamColor) {
+  const worm = (teamColor === "🔴") ? redWorm3D : blueWorm3D;
+  
+  const foodGeo = new THREE.SphereGeometry(0.45, 8, 8);
+  const foodMat = new THREE.MeshStandardMaterial({ 
+    color: (teamColor === "🔴") ? 0xff5252 : 0x2979ff, 
+    emissive: 0x444444 
+  });
+  const mesh = new THREE.Mesh(foodGeo, foodMat);
+  
+  const foodX = worm.x + Math.cos(worm.angle) * 3;
+  const foodZ = worm.z + Math.sin(worm.angle) * 3;
+  
+  mesh.position.set(foodX, 0.45, foodZ);
+  scene.add(mesh);
+  
+  activeFoods.push({ mesh: mesh, x: foodX, z: foodZ, targetWorm: worm });
 }
 
 function animate3D() {
   requestAnimationFrame(animate3D);
 
   if (isMatchActive) {
+    let chaser = (redWorm3D.length >= blueWorm3D.length) ? redWorm3D : blueWorm3D;
+    let victim = (chaser === redWorm3D) ? blueWorm3D : redWorm3D;
+
+    let dxChaser = victim.x - chaser.x;
+    let dzChaser = victim.z - chaser.z;
+    chaser.angle = Math.atan2(dzChaser, dxChaser);
+    
+    victim.angle = chaser.angle + 0.5;
+
     [redWorm3D, blueWorm3D].forEach(w => {
-      let rival = (w === redWorm3D) ? blueWorm3D : redWorm3D;
-      let targetX, targetZ;
-
-      if (w.length > rival.length) {
-        targetX = rival.x; targetZ = rival.z;
-      } else {
-        let f = foods3D[0] || {x: 0, z: 0};
-        targetX = f.x; targetZ = f.z;
-      }
-
-      let dx = targetX - w.x;
-      let dz = targetZ - w.z;
-      w.angle = Math.atan2(dz, dx);
-
-      let speed = (w.length > rival.length) ? 0.18 : 0.12;
+      let speed = (w === chaser) ? 0.16 : 0.12;
       w.x += Math.cos(w.angle) * speed;
       w.z += Math.sin(w.angle) * speed;
 
@@ -304,23 +357,32 @@ function animate3D() {
           w.segments[i].visible = false;
         }
       }
-
-      foods3D.forEach((f) => {
-        if(Math.hypot(w.x - f.x, w.z - f.z) < 1.2) {
-          w.length = Math.min(30, w.length + 1);
-          f.x = (Math.random() - 0.5) * 34;
-          f.z = (Math.random() - 0.5) * 20;
-          f.mesh.position.set(f.x, 0.4, f.z);
-        }
-      });
     });
 
-    let dist = Math.hypot(redWorm3D.x - blueWorm3D.x, redWorm3D.z - blueWorm3D.z);
-    if(dist < 1.8) {
-      if(redWorm3D.length > blueWorm3D.length && blueWorm3D.length > 5) {
-        redWorm3D.length += 1; blueWorm3D.length -= 1;
-      } else if(blueWorm3D.length > redWorm3D.length && redWorm3D.length > 5) {
-        blueWorm3D.length += 1; redWorm3D.length -= 1;
+    activeFoods.forEach((f, idx) => {
+      if(Math.hypot(f.targetWorm.x - f.x, f.targetWorm.z - f.z) < 1.5) {
+        f.targetWorm.length = Math.min(30, f.targetWorm.length + 1);
+        playEatSound();
+        scene.remove(f.mesh);
+        activeFoods.splice(idx, 1);
+      }
+    });
+
+    let distBetween = Math.hypot(redWorm3D.x - blueWorm3D.x, redWorm3D.z - blueWorm3D.z);
+    if(distBetween < 1.8) {
+      let now = Date.now();
+      if (now - lastBiteTime > 500) {
+        if(redWorm3D.length > blueWorm3D.length && blueWorm3D.length > 5) {
+          redWorm3D.length += 1; 
+          blueWorm3D.length -= 1;
+          playBiteSound();
+          lastBiteTime = now;
+        } else if(blueWorm3D.length > redWorm3D.length && redWorm3D.length > 5) {
+          blueWorm3D.length += 1; 
+          redWorm3D.length -= 1;
+          playBiteSound();
+          lastBiteTime = now;
+        }
       }
     }
   }
@@ -331,13 +393,15 @@ function animate3D() {
   renderer.render(scene, camera);
 }
 
-/* START BATTLE DENGAN TIMER 60 DETIK */
 async function triggerHostStartMatch() {
   const classCode = document.getElementById("filterClass").value.trim().toUpperCase();
   if (!classCode) return;
 
   isTeacherHost = true;
+  initAudio();
   connectRealtimeChannel(classCode);
+
+  const selectedDuration = parseInt(document.getElementById("matchTimerSelect").value) || 60;
 
   setTimeout(() => {
     if (realtimeChannel) {
@@ -345,7 +409,7 @@ async function triggerHostStartMatch() {
       
       init3DScene();
       isMatchActive = true;
-      timeLeft = 60;
+      timeLeft = selectedDuration;
       document.getElementById("timerHUD").innerText = `⏱️ ${timeLeft}s`;
 
       clearInterval(matchTimer);
@@ -367,15 +431,34 @@ async function triggerHostStartMatch() {
 function endMatchBattle() {
   isMatchActive = false;
   let winnerTitle = "";
+  let winningTeamEmoji = "";
+
   if (redWorm3D.length > blueWorm3D.length) {
     winnerTitle = "🏆 RED WORM WINS THE BATTLE!";
+    winningTeamEmoji = "🔴";
   } else if (blueWorm3D.length > redWorm3D.length) {
     winnerTitle = "🏆 BLUE WORM WINS THE BATTLE!";
+    winningTeamEmoji = "🔵";
   } else {
     winnerTitle = "🤝 IT'S A DRAW!";
+    winningTeamEmoji = "DRAW";
   }
 
-  munculkanAlert("🏁 TIME'S UP!", `${winnerTitle}<br><br>Red Worm Length: <b>${redWorm3D.length}</b><br>Blue Worm Length: <b>${blueWorm3D.length}</b>`);
+  // BROADCAST BROADCAST SIARAN GAME OVER KESELURUH SISWA DENGAN DATA PEMENANG
+  if (realtimeChannel) {
+    realtimeChannel.send({
+      type: 'broadcast',
+      event: 'end_battle',
+      payload: {
+        winnerTitle: winnerTitle,
+        winningTeamEmoji: winningTeamEmoji,
+        redLength: redWorm3D.length,
+        blueLength: blueWorm3D.length
+      }
+    });
+  }
+
+  munculkanAlert("🏁 TIME'S UP!", `${winnerTitle}<br><br>Red Worm Length: <b>${redWorm3D.length} seg</b><br>Blue Worm Length: <b>${blueWorm3D.length} seg</b>`);
 }
 
 function cekInput() {
@@ -420,6 +503,16 @@ function connectRealtimeChannel(classCode, pName = "", pTeam = "") {
     .on('presence', { event: 'sync' }, () => updateLobbyUI(realtimeChannel.presenceState()))
     .on('broadcast', { event: 'start_battle' }, () => {
       if (!isTeacherHost) startQuizForStudent();
+    })
+    .on('broadcast', { event: 'student_correct_answer' }, (payload) => {
+      if (isTeacherHost) {
+        spawnFoodForTeam(payload.payload.team);
+      }
+    })
+    .on('broadcast', { event: 'end_battle' }, (payload) => {
+      if (!isTeacherHost) {
+        handleStudentGameOver(payload.payload);
+      }
     })
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED' && pName !== "") {
@@ -472,12 +565,19 @@ function generateQuiz() {
 }
 
 async function checkAnswer(val) {
+  let team = document.getElementById("teamSelect").value;
   if (val === currentAns) {
     score += 10;
-    document.getElementById("quizMsg").innerHTML = "<span style='color:#4caf50;'>✨ CORRECT! +10 (BOOSTED WORM!)</span>";
-    let team = document.getElementById("teamSelect").value;
-    if (team === "🔴") redWorm3D.length = Math.min(30, redWorm3D.length + 1);
-    if (team === "🔵") blueWorm3D.length = Math.min(30, blueWorm3D.length + 1);
+    document.getElementById("quizMsg").innerHTML = "<span style='color:#4caf50;'>✨ CORRECT! +10 (FOOD SPAWNED FOR WORM!)</span>";
+    
+    if (realtimeChannel) {
+      realtimeChannel.send({
+        type: 'broadcast',
+        event: 'student_correct_answer',
+        payload: { team: team }
+      });
+    }
+
     syncScoreToDatabase();
   } else {
     document.getElementById("quizMsg").innerHTML = "<span style='color:#ff5252;'>❌ WRONG!</span>";
@@ -486,6 +586,45 @@ async function checkAnswer(val) {
     document.getElementById("quizMsg").innerHTML = "";
     generateQuiz();
   }, 800);
+}
+
+// PENANGANAN GAME OVER & MENSAMPELKAN MODAL HASIL PADA HP SISWA
+function handleStudentGameOver(data) {
+  const myTeam = document.getElementById("teamSelect").value;
+  let resultStatusText = "";
+
+  if (data.winningTeamEmoji === "DRAW") {
+    resultStatusText = "🤝 GAME DRAW!";
+  } else if (data.winningTeamEmoji === myTeam) {
+    resultStatusText = "🎉 YOUR TEAM WON THE BATTLE!";
+  } else {
+    resultStatusText = "💔 YOUR TEAM LOST!";
+  }
+
+  const alertCloseBtn = document.getElementById("alertCloseBtn");
+  alertCloseBtn.innerText = "🔄 Reset & Ready for Next Round";
+  alertCloseBtn.onclick = resetStudentToLobby;
+
+  munculkanAlert("🏁 TIME'S UP!", 
+    `<b style='font-size:20px; color:#ffca28;'>${resultStatusText}</b><br><br>` +
+    `Your Final Score: <b style='color:#4caf50; font-size:24px;'>${score}</b><br>` +
+    `<small>Red Worm: ${data.redLength} seg | Blue Worm: ${data.blueLength} seg</small>`
+  );
+}
+
+function resetStudentToLobby() {
+  tutupAlert();
+  document.getElementById("quizArea").classList.add("hidden");
+  document.getElementById("top-menu").classList.remove("hidden");
+  
+  // Reset tombol modal kembali normal
+  const alertCloseBtn = document.getElementById("alertCloseBtn");
+  alertCloseBtn.innerText = "Close";
+  alertCloseBtn.onclick = tutupAlert;
+
+  score = 0;
+  currentRecordId = null;
+  cekInput();
 }
 
 async function syncScoreToDatabase() {
