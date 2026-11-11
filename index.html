@@ -124,7 +124,6 @@ input, select {
       <button class="btn-blue" onclick="renderBoard()" style="margin:0;">Search</button>
     </div>
 
-    <!-- PILIHAN WAKTU PERTANDINGAN KHUSUS GURU -->
     <div style="margin-bottom:10px;">
       <label style="color:#ffca28; font-weight:bold; font-size:14px;">⏱️ Match Duration:</label>
       <select id="matchTimerSelect" onchange="updateTimerHUDPreview()" style="width: auto; display: inline-block; padding: 8px 15px; margin-left: 10px;">
@@ -181,14 +180,14 @@ let matchTimer = null;
 let studentTimerInterval = null;
 let timeLeft = 60;
 let isMatchActive = false;
+let animFrameReqId = null; // Guard untuk mencegah penumpukan loop FPS
 
-/* UPDATE TAMPILAN PREVIEW TIMER DI PROYEKTOR HOST */
 function updateTimerHUDPreview() {
   const val = document.getElementById("matchTimerSelect").value;
   document.getElementById("timerHUD").innerText = `⏱️ ${val}s`;
 }
 
-/* WEB AUDIO API - SYNTH */
+/* WEB AUDIO API */
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
 
@@ -225,14 +224,16 @@ function playBiteSound() {
   osc.start(); osc.stop(audioCtx.currentTime + 0.2);
 }
 
-/* THREE.JS 3D ENGINE */
+/* THREE.JS 3D ENGINE PRESISE */
 let scene, camera, renderer;
-let redWorm3D = { meshGroup: null, segments: [], length: 10, x: -10, z: 0, angle: 0, speed: 0.15, color: 0xff3333 };
-let blueWorm3D = { meshGroup: null, segments: [], length: 10, x: 10, z: 0, angle: Math.PI, speed: 0.15, color: 0x3388ff };
+let redWorm3D = { meshGroup: null, segments: [], history: [], length: 10, x: -10, z: 0, angle: 0, speed: 0.14, color: 0xff3333 };
+let blueWorm3D = { meshGroup: null, segments: [], history: [], length: 10, x: 10, z: 0, angle: Math.PI, speed: 0.14, color: 0x3388ff };
 let activeFoods = [];
 let lastBiteTime = 0;
 
 function init3DScene() {
+  if (animFrameReqId) cancelAnimationFrame(animFrameReqId); // CANCEL PREVIOUS LOOP (ANTI LAG)
+
   const container = document.getElementById("canvas3DContainer");
   const oldHUD = document.getElementById("timerHUD");
   container.innerHTML = "";
@@ -297,10 +298,16 @@ function buildWorm3D(worm, startX, startAngle) {
   scene.add(worm.meshGroup);
   
   worm.segments = [];
+  worm.history = [];
   worm.length = 10;
   worm.x = startX;
   worm.z = 0;
   worm.angle = startAngle;
+
+  // Inisialisasi Riwayat Posisi Kepala
+  for(let i=0; i<300; i++) {
+    worm.history.push({ x: startX, z: 0, angle: startAngle });
+  }
 
   const bodyMaterial = new THREE.MeshStandardMaterial({ color: worm.color, roughness: 0.3 });
 
@@ -309,11 +316,11 @@ function buildWorm3D(worm, startX, startAngle) {
     if(i === 0) {
       mesh = createCuteHead(worm.color);
     } else {
-      const scale = Math.max(0.3, 0.75 - (i * 0.015));
+      const scale = Math.max(0.35, 0.75 - (i * 0.012));
       const geo = new THREE.SphereGeometry(scale, 12, 12);
       mesh = new THREE.Mesh(geo, bodyMaterial);
     }
-    mesh.position.set(worm.x, 0.8, worm.z);
+    mesh.position.set(startX, 0.8, 0);
     worm.meshGroup.add(mesh);
     worm.segments.push(mesh);
   }
@@ -339,7 +346,7 @@ function spawnFoodForTeam(teamColor) {
 }
 
 function animate3D() {
-  requestAnimationFrame(animate3D);
+  animFrameReqId = requestAnimationFrame(animate3D);
 
   if (isMatchActive) {
     let chaser = (redWorm3D.length >= blueWorm3D.length) ? redWorm3D : blueWorm3D;
@@ -349,30 +356,40 @@ function animate3D() {
     let dzChaser = victim.z - chaser.z;
     chaser.angle = Math.atan2(dzChaser, dxChaser);
     
-    victim.angle = chaser.angle + 0.5;
+    victim.angle = chaser.angle + 0.6; // Menghindar memutar
 
     [redWorm3D, blueWorm3D].forEach(w => {
-      let speed = (w === chaser) ? 0.16 : 0.12;
+      let speed = (w === chaser) ? 0.15 : 0.11;
       w.x += Math.cos(w.angle) * speed;
       w.z += Math.sin(w.angle) * speed;
 
-      if(w.x < -18) w.x = 18; if(w.x > 18) w.x = -18;
-      if(w.z < -11) w.z = 11; if(w.z > 11) w.z = -11;
+      // Batas Arena (Wrap Teleport Smooth)
+      if(w.x < -18) { w.x = 18; wormClearHistory(w); }
+      if(w.x > 18) { w.x = -18; wormClearHistory(w); }
+      if(w.z < -11) { w.z = 11; wormClearHistory(w); }
+      if(w.z > 11) { w.z = -11; wormClearHistory(w); }
 
-      w.segments[0].position.set(w.x, 0.8, w.z);
-      w.segments[0].rotation.y = -w.angle + Math.PI/2;
+      // Tambahkan Posisi Baru ke Riwayat Sejarah Kepala
+      w.history.unshift({ x: w.x, z: w.z, angle: w.angle });
+      if (w.history.length > 300) w.history.pop();
 
-      for(let i = w.segments.length - 1; i > 0; i--) {
+      // UPDATE SEGMEN BERDASARKAN POSITION HISTORY TRAIL (ANTI TERPUTUS/ANTI LEAK)
+      for(let i = 0; i < 30; i++) {
         if(i < w.length) {
           w.segments[i].visible = true;
-          let prev = w.segments[i-1].position;
-          w.segments[i].position.lerp(prev, 0.35);
+          let histIdx = i * 5; // Jarak/Gap antar segmen presisi
+          let pos = w.history[histIdx] || w.history[w.history.length - 1];
+          w.segments[i].position.set(pos.x, 0.8, pos.z);
+          if (i === 0) {
+            w.segments[i].rotation.y = -pos.angle + Math.PI/2;
+          }
         } else {
           w.segments[i].visible = false;
         }
       }
     });
 
+    // MEMANGLAP MAKANAN -> BUNYI EFEK MAKAN
     activeFoods.forEach((f, idx) => {
       if(Math.hypot(f.targetWorm.x - f.x, f.targetWorm.z - f.z) < 1.5) {
         f.targetWorm.length = Math.min(30, f.targetWorm.length + 1);
@@ -382,6 +399,7 @@ function animate3D() {
       }
     });
 
+    // BENTURAN / GIGITAN CACING
     let distBetween = Math.hypot(redWorm3D.x - blueWorm3D.x, redWorm3D.z - blueWorm3D.z);
     if(distBetween < 1.8) {
       let now = Date.now();
@@ -407,6 +425,13 @@ function animate3D() {
   renderer.render(scene, camera);
 }
 
+function wormClearHistory(worm) {
+  worm.history = [];
+  for(let i=0; i<300; i++) {
+    worm.history.push({ x: worm.x, z: worm.z, angle: worm.angle });
+  }
+}
+
 async function triggerHostStartMatch() {
   const classCode = document.getElementById("filterClass").value.trim().toUpperCase();
   if (!classCode) return;
@@ -419,7 +444,6 @@ async function triggerHostStartMatch() {
 
   setTimeout(() => {
     if (realtimeChannel) {
-      // KIRIM BROADCAST WAKTU DURASI KE SELURUH HP SISWA
       realtimeChannel.send({ 
         type: 'broadcast', 
         event: 'start_battle',
@@ -569,7 +593,6 @@ function startQuizForStudent(duration) {
   document.getElementById("top-menu").classList.add("hidden");
   document.getElementById("quizArea").classList.remove("hidden");
   
-  // JALANKAN TIMER DI HP SISWA
   let studentTimeLeft = duration;
   document.getElementById("studentTimerDisplay").innerText = `⏱️ Time: ${studentTimeLeft}s`;
   
