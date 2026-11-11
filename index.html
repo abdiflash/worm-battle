@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>2D Worm Battle Class Arena</title>
+<title>2D Worm Tug-of-War Class Arena</title>
 
 <!-- Fun Font for Kids -->
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
@@ -85,7 +85,7 @@ input, select {
 <button id="fullscreen-btn">🔍 Full Screen</button>
 
 <div class="main-wrapper">
-  <h1>🪱 2D Worm Battle Arena</h1>
+  <h1>🪱 Worm Tug-of-War Arena</h1>
 
   <!-- STUDENT MENU -->
   <div id="top-menu" class="game-card">
@@ -117,9 +117,9 @@ input, select {
     <div id="quizMsg" style="margin-top:15px; font-weight:bold;"></div>
   </div>
 
-  <!-- LIVEBOARD GURU (PROYEKTOR 2D WORM BATTLE) -->
+  <!-- LIVEBOARD GURU (PROYEKTOR DUAL-ZONE ARENA) -->
   <div id="boardPanel" class="game-card hidden">
-    <h3>📊 Live 2D Worm Arena</h3>
+    <h3>📊 Live Worm Tug-of-War Arena</h3>
     
     <div style="display:flex; justify-content:center; gap:5px; margin-bottom:10px;">
       <input id="filterClass" placeholder="CLASS CODE..." style="width:50%; margin:0; text-transform: uppercase;" oninput="syncHostChannel()">
@@ -146,11 +146,11 @@ input, select {
 
     <div class="lobby-container">
       <div class="team-column" style="border-color: #ff5252;">
-        <h4 style="color: #ff5252; margin:0 0 5px 0;">🔴 Red Worm (<span id="redLength">10</span> seg)</h4>
+        <h4 style="color: #ff5252; margin:0 0 5px 0;">🔴 Red Territory (<span id="redTerritoryPct">50</span>%)</h4>
         <div id="redTeamList" class="player-tag-list"></div>
       </div>
       <div class="team-column" style="border-color: #2979ff;">
-        <h4 style="color: #2979ff; margin:0 0 5px 0;">🔵 Blue Worm (<span id="blueLength">10</span> seg)</h4>
+        <h4 style="color: #2979ff; margin:0 0 5px 0;">🔵 Blue Territory (<span id="blueTerritoryPct">50</span>%)</h4>
         <div id="blueTeamList" class="player-tag-list"></div>
       </div>
     </div>
@@ -227,44 +227,32 @@ function playBiteSound() {
   osc.start(); osc.stop(audioCtx.currentTime + 0.2);
 }
 
-/* CANVAS 2D ENGINE (ANTI MACET DINDING) */
+/* CANVAS DUAL-ZONE TUG-OF-WAR ENGINE */
 const canvas = document.getElementById("wormCanvas");
 const ctx = canvas.getContext("2d");
 
-let redWorm2D = { x: 120, y: 160, angle: 0, length: 10, speed: 2.2, color: '#ff5252', segments: [] };
-let blueWorm2D = { x: 430, y: 160, angle: Math.PI, length: 10, speed: 2.2, color: '#2979ff', segments: [] };
-let activeFoods = [];
-let lastBiteTime = 0;
+let dividerX = canvas.width / 2; // Garis Pemisah Tengah (50%-50%)
+let targetDividerX = canvas.width / 2;
+
+let redWorm = { y: canvas.height / 2, waveOffset: 0, color: '#ff5252' };
+let blueWorm = { y: canvas.height / 2, waveOffset: Math.PI, color: '#2979ff' };
 
 function init2DArena() {
   if (animFrameReqId) cancelAnimationFrame(animFrameReqId);
-
-  initWormSegments(redWorm2D, 120, 160, 0);
-  initWormSegments(blueWorm2D, 430, 160, Math.PI);
-  activeFoods = [];
-
+  dividerX = canvas.width / 2;
+  targetDividerX = canvas.width / 2;
   animate2D();
 }
 
-function initWormSegments(worm, x, y, angle) {
-  worm.x = x; worm.y = y; worm.angle = angle; worm.length = 10;
-  worm.segments = [];
-  for(let i=0; i<30; i++) {
-    worm.segments.push({ x: x - i * 11 * Math.cos(angle), y: y - i * 11 * Math.sin(angle) });
+function pushTerritory(teamColor) {
+  const pushAmount = 18; // Setiap jawaban benar mendorong garis 18px
+  if (teamColor === "🔴") {
+    targetDividerX = Math.min(canvas.width - 30, targetDividerX + pushAmount);
+    playEatSound();
+  } else if (teamColor === "🔵") {
+    targetDividerX = Math.max(30, targetDividerX - pushAmount);
+    playBiteSound();
   }
-}
-
-function spawnFoodForTeam(teamColor) {
-  const worm = (teamColor === "🔴") ? redWorm2D : blueWorm2D;
-  const foodX = worm.x + Math.cos(worm.angle) * 45;
-  const foodY = worm.y + Math.sin(worm.angle) * 45;
-
-  activeFoods.push({
-    x: Math.max(25, Math.min(canvas.width - 25, foodX)),
-    y: Math.max(25, Math.min(canvas.height - 25, foodY)),
-    color: (teamColor === "🔴") ? '#ff5252' : '#2979ff',
-    targetWorm: worm
-  });
 }
 
 function animate2D() {
@@ -272,141 +260,107 @@ function animate2D() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // BACKGROUND GRID ARENA
+  // Smooth lerp pergerakan garis batas wilayah
+  dividerX += (targetDividerX - dividerX) * 0.1;
+
+  // 1. DRAW DUAL TERRITORY BACKGROUND
+  // Red Zone (Kiri)
+  ctx.fillStyle = "rgba(239, 68, 68, 0.12)";
+  ctx.fillRect(0, 0, dividerX, canvas.height);
+
+  // Blue Zone (Kanan)
+  ctx.fillStyle = "rgba(41, 121, 255, 0.12)";
+  ctx.fillRect(dividerX, 0, canvas.width - dividerX, canvas.height);
+
+  // Grid Background
   ctx.strokeStyle = "rgba(255,255,255,0.03)";
   ctx.lineWidth = 1;
   for(let x=0; x<canvas.width; x+=25) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
   for(let y=0; y<canvas.height; y+=25) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
 
+  // 2. DRAW PUSHING DIVIDER LINE (GARIS BATAS TENGAH)
+  ctx.beginPath();
+  ctx.moveTo(dividerX, 0);
+  ctx.lineTo(dividerX, canvas.height);
+  ctx.strokeStyle = "#ffca28";
+  ctx.lineWidth = 4;
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = "#ffca28";
+  ctx.stroke();
+  ctx.closePath();
+  ctx.shadowBlur = 0;
+
   if (isMatchActive) {
-    let chaser = (redWorm2D.length >= blueWorm2D.length) ? redWorm2D : blueWorm2D;
-    let victim = (chaser === redWorm2D) ? blueWorm2D : redWorm2D;
-
-    // TARGETING AI
-    let dx = victim.x - chaser.x;
-    let dy = victim.y - chaser.y;
-    chaser.angle = Math.atan2(dy, dx);
-    victim.angle = chaser.angle + 0.75;
-
-    [redWorm2D, blueWorm2D].forEach(w => {
-      let speed = (w === chaser) ? 2.3 : 1.8;
-      
-      let nextX = w.x + Math.cos(w.angle) * speed;
-      let nextY = w.y + Math.sin(w.angle) * speed;
-
-      // PANTULAN DINDING OTOMATIS (MENCEGAH STUCK/MACET DI TEPIAN)
-      const margin = 20;
-      if (nextX < margin) { w.angle = Math.PI - w.angle; nextX = margin; }
-      if (nextX > canvas.width - margin) { w.angle = Math.PI - w.angle; nextX = canvas.width - margin; }
-      if (nextY < margin) { w.angle = -w.angle; nextY = margin; }
-      if (nextY > canvas.height - margin) { w.angle = -w.angle; nextY = canvas.height - margin; }
-
-      w.x = nextX;
-      w.y = nextY;
-
-      // INVERSE KINEMATICS PRESISE DENGAN CLAMPING
-      w.segments[0] = { x: w.x, y: w.y };
-      for (let i = 1; i < 30; i++) {
-        let prev = w.segments[i - 1];
-        let curr = w.segments[i];
-        let segDx = prev.x - curr.x;
-        let segDy = prev.y - curr.y;
-        let dist = Math.hypot(segDx, segDy);
-        let targetDist = 11;
-
-        if (dist > targetDist && dist > 0) {
-          let segAngle = Math.atan2(segDy, segDx);
-          curr.x = prev.x - Math.cos(segAngle) * targetDist;
-          curr.y = prev.y - Math.sin(segAngle) * targetDist;
-        }
-
-        // Kunci segmen badan tetap di dalam canvas
-        curr.x = Math.max(10, Math.min(canvas.width - 10, curr.x));
-        curr.y = Math.max(10, Math.min(canvas.height - 10, curr.y));
-      }
-    });
-
-    // MAKAN MAKANAN HASIL JAWABAN SISWA
-    activeFoods.forEach((f, idx) => {
-      if(Math.hypot(f.targetWorm.x - f.x, f.targetWorm.y - f.y) < 18) {
-        f.targetWorm.length = Math.min(30, f.targetWorm.length + 1);
-        playEatSound();
-        activeFoods.splice(idx, 1);
-      }
-    });
-
-    // GIGITAN CACING
-    let distBetween = Math.hypot(redWorm2D.x - blueWorm2D.x, redWorm2D.y - blueWorm2D.y);
-    if(distBetween < 22) {
-      let now = Date.now();
-      if (now - lastBiteTime > 500) {
-        if(redWorm2D.length > blueWorm2D.length && blueWorm2D.length > 5) {
-          redWorm2D.length += 1; blueWorm2D.length -= 1;
-          playBiteSound(); lastBiteTime = now;
-        } else if(blueWorm2D.length > redWorm2D.length && redWorm2D.length > 5) {
-          blueWorm2D.length += 1; redWorm2D.length -= 1;
-          playBiteSound(); lastBiteTime = now;
-        }
-      }
-    }
+    redWorm.waveOffset += 0.08;
+    blueWorm.waveOffset += 0.08;
   }
 
-  // GAMBAR MAKANAN
-  activeFoods.forEach(f => {
+  // 3. DRAW RED WORM (BERENANG DI KOLOM KIRI MEMBENTUK SINUS WAVE)
+  drawTerritoryWorm(
+    0, dividerX - 15, canvas.height / 2, 
+    redWorm.waveOffset, redWorm.color, true
+  );
+
+  // 4. DRAW BLUE WORM (BERENANG DI KOLOM KANAN MEMBENTUK SINUS WAVE)
+  drawTerritoryWorm(
+    canvas.width, dividerX + 15, canvas.height / 2, 
+    blueWorm.waveOffset, blueWorm.color, false
+  );
+
+  // UPDATE PERSENTASE TERRITORI HUD
+  let redPct = Math.round((dividerX / canvas.width) * 100);
+  let bluePct = 100 - redPct;
+  document.getElementById("redTerritoryPct").innerText = redPct;
+  document.getElementById("blueTerritoryPct").innerText = bluePct;
+}
+
+function drawTerritoryWorm(startX, headX, centerY, waveOffset, colorHex, isFacingRight) {
+  let segCount = 22;
+  let points = [];
+
+  for (let i = 0; i < segCount; i++) {
+    let t = i / (segCount - 1);
+    let x = startX + (headX - startX) * t;
+    let wave = Math.sin(waveOffset + i * 0.35) * 12;
+    let y = centerY + wave;
+    points.push({ x: x, y: y });
+  }
+
+  // Gambar Segmen Badan
+  for (let i = 0; i < points.length - 1; i++) {
+    let p = points[i];
+    let radius = Math.max(5, 14 * (i / segCount));
     ctx.beginPath();
-    ctx.arc(f.x, f.y, 6, 0, Math.PI * 2);
-    ctx.fillStyle = f.color;
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = f.color;
+    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = colorHex;
     ctx.fill();
     ctx.closePath();
-    ctx.shadowBlur = 0;
-  });
+  }
 
-  // GAMBAR CACING
-  [redWorm2D, blueWorm2D].forEach(w => {
-    for (let i = w.length - 1; i >= 1; i--) {
-      let seg = w.segments[i];
-      let radius = Math.max(5, 12 - (i * 0.25));
-      ctx.beginPath();
-      ctx.arc(seg.x, seg.y, radius, 0, Math.PI * 2);
-      ctx.fillStyle = w.color;
-      ctx.fill();
-      ctx.closePath();
-    }
+  // Gambar Kepala Cacing Lucu
+  let head = points[points.length - 1];
+  ctx.beginPath();
+  ctx.arc(head.x, head.y, 15, 0, Math.PI * 2);
+  ctx.fillStyle = colorHex;
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = colorHex;
+  ctx.fill();
+  ctx.closePath();
+  ctx.shadowBlur = 0;
 
-    let head = w.segments[0];
-    ctx.beginPath();
-    ctx.arc(head.x, head.y, 14, 0, Math.PI * 2);
-    ctx.fillStyle = w.color;
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = w.color;
-    ctx.fill();
-    ctx.closePath();
-    ctx.shadowBlur = 0;
+  // Gambar Mata Kartun
+  let eyeOffsetX = isFacingRight ? 5 : -5;
+  
+  // Mata Kiri & Kanan
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath(); ctx.arc(head.x + eyeOffsetX, head.y - 5, 4, 0, Math.PI * 2); ctx.fill(); ctx.closePath();
+  ctx.beginPath(); ctx.arc(head.x + eyeOffsetX, head.y + 5, 4, 0, Math.PI * 2); ctx.fill(); ctx.closePath();
 
-    let eyeAngleLeft = w.angle - 0.45;
-    let eyeAngleRight = w.angle + 0.45;
-    let exL = head.x + Math.cos(eyeAngleLeft) * 8;
-    let eyL = head.y + Math.sin(eyeAngleLeft) * 8;
-    let exR = head.x + Math.cos(eyeAngleRight) * 8;
-    let eyR = head.y + Math.sin(eyeAngleRight) * 8;
-
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath(); ctx.arc(exL, eyL, 4, 0, Math.PI*2); ctx.fill(); ctx.closePath();
-    ctx.beginPath(); ctx.arc(exR, eyR, 4, 0, Math.PI*2); ctx.fill(); ctx.closePath();
-
-    let pxL = exL + Math.cos(w.angle) * 1.5;
-    let pyL = eyL + Math.sin(w.angle) * 1.5;
-    let pxR = exR + Math.cos(w.angle) * 1.5;
-    let pyR = eyR + Math.sin(w.angle) * 1.5;
-    ctx.fillStyle = "#000000";
-    ctx.beginPath(); ctx.arc(pxL, pyL, 2, 0, Math.PI*2); ctx.fill(); ctx.closePath();
-    ctx.beginPath(); ctx.arc(pxR, pyR, 2, 0, Math.PI*2); ctx.fill(); ctx.closePath();
-  });
-
-  document.getElementById("redLength").innerText = redWorm2D.length;
-  document.getElementById("blueLength").innerText = blueWorm2D.length;
+  // Pupil Hitam
+  ctx.fillStyle = "#000000";
+  let pupilOffsetX = isFacingRight ? 1.5 : -1.5;
+  ctx.beginPath(); ctx.arc(head.x + eyeOffsetX + pupilOffsetX, head.y - 5, 2, 0, Math.PI * 2); ctx.fill(); ctx.closePath();
+  ctx.beginPath(); ctx.arc(head.x + eyeOffsetX + pupilOffsetX, head.y + 5, 2, 0, Math.PI * 2); ctx.fill(); ctx.closePath();
 }
 
 async function triggerHostStartMatch() {
@@ -453,14 +407,16 @@ function endMatchBattle() {
   let winnerTitle = "";
   let winningTeamEmoji = "";
 
-  if (redWorm2D.length > blueWorm2D.length) {
-    winnerTitle = "🏆 RED WORM WINS THE BATTLE!";
+  let redPct = Math.round((dividerX / canvas.width) * 100);
+
+  if (redPct > 50) {
+    winnerTitle = "🏆 RED WORM WINS THE TERRITORY!";
     winningTeamEmoji = "🔴";
-  } else if (blueWorm2D.length > redWorm2D.length) {
-    winnerTitle = "🏆 BLUE WORM WINS THE BATTLE!";
+  } else if (redPct < 50) {
+    winnerTitle = "🏆 BLUE WORM WINS THE TERRITORY!";
     winningTeamEmoji = "🔵";
   } else {
-    winnerTitle = "🤝 IT'S A DRAW!";
+    winnerTitle = "🤝 IT'S A PERFECT DRAW!";
     winningTeamEmoji = "DRAW";
   }
 
@@ -471,13 +427,13 @@ function endMatchBattle() {
       payload: {
         winnerTitle: winnerTitle,
         winningTeamEmoji: winningTeamEmoji,
-        redLength: redWorm2D.length,
-        blueLength: blueWorm2D.length
+        redPct: redPct,
+        bluePct: 100 - redPct
       }
     });
   }
 
-  munculkanAlert("🏁 TIME'S UP!", `${winnerTitle}<br><br>Red Worm Length: <b>${redWorm2D.length} seg</b><br>Blue Worm Length: <b>${blueWorm2D.length} seg</b>`);
+  munculkanAlert("🏁 TIME'S UP!", `${winnerTitle}<br><br>Red Territory: <b>${redPct}%</b><br>Blue Territory: <b>${100 - redPct}%</b>`);
 }
 
 function cekInput() {
@@ -528,7 +484,7 @@ function connectRealtimeChannel(classCode, pName = "", pTeam = "") {
     })
     .on('broadcast', { event: 'student_correct_answer' }, (payload) => {
       if (isTeacherHost) {
-        spawnFoodForTeam(payload.payload.team);
+        pushTerritory(payload.payload.team);
       }
     })
     .on('broadcast', { event: 'end_battle' }, (payload) => {
@@ -604,7 +560,7 @@ async function checkAnswer(val) {
   let team = document.getElementById("teamSelect").value;
   if (val === currentAns) {
     score += 10;
-    document.getElementById("quizMsg").innerHTML = "<span style='color:#4caf50;'>✨ CORRECT! +10 (FOOD SPAWNED FOR WORM!)</span>";
+    document.getElementById("quizMsg").innerHTML = "<span style='color:#4caf50;'>✨ CORRECT! +10 (PUSHED ENEMY TERRITORY!)</span>";
     
     if (realtimeChannel) {
       realtimeChannel.send({
@@ -644,7 +600,7 @@ function handleStudentGameOver(data) {
   munculkanAlert("🏁 TIME'S UP!", 
     `<b style='font-size:20px; color:#ffca28;'>${resultStatusText}</b><br><br>` +
     `Your Final Score: <b style='color:#4caf50; font-size:24px;'>${score}</b><br>` +
-    `<small>Red Worm: ${data.redLength} seg | Blue Worm: ${data.blueLength} seg</small>`
+    `<small>Red Territory: ${data.redPct}% | Blue Territory: ${data.bluePct}%</small>`
   );
 }
 
@@ -669,7 +625,7 @@ async function syncScoreToDatabase() {
 
   if(!currentRecordId) {
     const { data } = await supabaseClient.from("scores").insert([{
-      name: pTeam + " " + pName, class: pClass, score: score, mode: "2dworm"
+      name: pTeam + " " + pName, class: pClass, score: score, mode: "2dtugofwar"
     }]).select();
     if(data && data.length > 0) currentRecordId = data[0].id;
   } else {
