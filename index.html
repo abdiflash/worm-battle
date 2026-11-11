@@ -61,7 +61,6 @@ input, select {
   z-index: 10;
 }
 
-/* POP-UP TRANS PARAN NOTIFIKASI KESALAHAN TIM */
 #penaltyBanner {
   position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
   background: rgba(220, 38, 38, 0.92); padding: 10px 20px; border-radius: 16px;
@@ -134,10 +133,10 @@ input, select {
   <div id="quizArea" class="game-card hidden">
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <div id="studentTimerDisplay" class="student-timer-badge">⏱️ Time: 60s</div>
-      <div id="questionTimeoutDisplay" class="question-timer-badge">⏳ Soal: 15s</div>
+      <div id="questionTimeoutDisplay" class="question-timer-badge">⏳ Soal: 20s</div>
       <div id="levelBadgeDisplay" class="level-badge level-easy">EASY (+10)</div>
     </div>
-    <h2 id="questionText" style="color:#ffca28; margin-top:15px;">Loading question...</h2>
+    <h3 id="questionText" style="color:#ffca28; margin-top:15px; font-size: 19px; line-height: 1.4;">Loading question...</h3>
     <div id="answerOptions" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px;"></div>
     <div id="quizMsg" style="margin-top:15px; font-weight:bold;"></div>
   </div>
@@ -151,21 +150,28 @@ input, select {
       <button class="btn-blue" onclick="renderBoard()" style="margin:0;">Search</button>
     </div>
 
-    <div style="margin-bottom:10px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+    <div style="margin-bottom:10px; display:flex; justify-content:center; gap:8px; flex-wrap:wrap;">
       <div>
-        <label style="color:#ffca28; font-weight:bold; font-size:13px;">⏱️ Duration:</label>
-        <select id="matchTimerSelect" onchange="updateTimerHUDPreview()" style="width: auto; display: inline-block; padding: 6px 10px;">
+        <label style="color:#ffca28; font-weight:bold; font-size:12px;">⏱️ Durasi:</label>
+        <select id="matchTimerSelect" onchange="updateTimerHUDPreview()" style="width: auto; display: inline-block; padding: 5px 8px; font-size: 13px;">
           <option value="60">60s</option>
           <option value="90">90s</option>
           <option value="120">120s</option>
         </select>
       </div>
       <div>
-        <label style="color:#ffca28; font-weight:bold; font-size:13px;">🎓 Level Soal:</label>
-        <select id="schoolLevelSelect" style="width: auto; display: inline-block; padding: 6px 10px;">
-          <option value="SD">🏫 SD (Sekolah Dasar)</option>
-          <option value="SMP">🏫 SMP (Menengah Pertama)</option>
-          <option value="SMA">🏫 SMA (Menengah Atas)</option>
+        <label style="color:#ffca28; font-weight:bold; font-size:12px;">🎓 Jenjang:</label>
+        <select id="schoolLevelSelect" style="width: auto; display: inline-block; padding: 5px 8px; font-size: 13px;">
+          <option value="SD">🏫 SD</option>
+          <option value="SMP">🏫 SMP</option>
+          <option value="SMA">🏫 SMA</option>
+        </select>
+      </div>
+      <div>
+        <label style="color:#ffca28; font-weight:bold; font-size:12px;">📝 Tipe Soal:</label>
+        <select id="questionTypeSelect" style="width: auto; display: inline-block; padding: 5px 8px; font-size: 13px;">
+          <option value="math">🔢 Operasi Simbol & Aljabar</option>
+          <option value="story">📖 Soal Cerita Matematika</option>
         </select>
       </div>
     </div>
@@ -176,7 +182,6 @@ input, select {
 
     <div id="canvasContainer">
       <div id="timerHUD">⏱️ 60s</div>
-      <!-- POPUP POPUP PENALTY LOG -->
       <div id="penaltyBanner">
         <b id="penaltyTitle">⚠️ TEAM PENALTY!</b><br>
         <small id="penaltyNames">Siswa keliru/lalai: Budi, Ani, Cici</small>
@@ -227,8 +232,8 @@ let isMatchActive = false;
 let animFrameReqId = null;
 
 let activeSchoolLevel = "SD";
+let activeQuestionType = "math";
 
-// TRACKER PENALTY TIM DI HOST
 let redMistakes = [], blueMistakes = [];
 
 function updateTimerHUDPreview() {
@@ -265,7 +270,7 @@ function playBiteSound() {
   osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.2);
 }
 
-/* CANVAS DUAL-ZONE ENGINE */
+/* CANVAS ENGINE */
 const canvas = document.getElementById("wormCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -293,7 +298,6 @@ function pushTerritory(teamColor, pushAmount = 18) {
   }
 }
 
-// LOGIKA PENALTY MUNDUR SAAT ADA 3 KESALAHAN TIM
 function handleTeamMistake(teamColor, studentName, reason = "salah") {
   let list = (teamColor === "🔴") ? redMistakes : blueMistakes;
   list.push(`${studentName} (${reason})`);
@@ -301,15 +305,10 @@ function handleTeamMistake(teamColor, studentName, reason = "salah") {
   if (list.length >= 3) {
     let penaltyNamesStr = list.join(", ");
     let victimTeamName = (teamColor === "🔴") ? "🔴 TIM MERAH" : "🔵 TIM BIRU";
-    
-    // Mendorong cacing lawan maju 35px (Cacing tim kena penalti mundur)
     let enemyTeam = (teamColor === "🔴") ? "🔵" : "🔴";
     pushTerritory(enemyTeam, 35);
 
-    // TAMPILKAN POP-UP NOTIFIKASI DI PROYEKTOR HOST
     showPenaltyPopUp(`⚠️ ${victimTeamName} PENALTY (-30px)`, `Siswa keliru/lalai: <b>${penaltyNamesStr}</b>`);
-
-    // Reset list kesalahan tim
     if (teamColor === "🔴") redMistakes = []; else blueMistakes = [];
   }
 }
@@ -319,10 +318,7 @@ function showPenaltyPopUp(title, msg) {
   document.getElementById("penaltyTitle").innerHTML = title;
   document.getElementById("penaltyNames").innerHTML = msg;
   banner.style.display = "block";
-  
-  setTimeout(() => {
-    banner.style.display = "none";
-  }, 3500);
+  setTimeout(() => { banner.style.display = "none"; }, 3500);
 }
 
 function animate2D() {
@@ -395,13 +391,14 @@ async function triggerHostStartMatch() {
 
   const selectedDuration = parseInt(document.getElementById("matchTimerSelect").value) || 60;
   const selectedSchoolLevel = document.getElementById("schoolLevelSelect").value;
+  const selectedQuestionType = document.getElementById("questionTypeSelect").value;
 
   setTimeout(() => {
     if (realtimeChannel) {
       realtimeChannel.send({ 
         type: 'broadcast', 
         event: 'start_battle',
-        payload: { duration: selectedDuration, level: selectedSchoolLevel }
+        payload: { duration: selectedDuration, level: selectedSchoolLevel, qType: selectedQuestionType }
       });
       
       init2DArena();
@@ -487,7 +484,9 @@ function connectRealtimeChannel(classCode, pName = "", pTeam = "") {
       if (!isTeacherHost) {
         const dur = (payload && payload.payload && payload.payload.duration) ? payload.payload.duration : 60;
         const lev = (payload && payload.payload && payload.payload.level) ? payload.payload.level : "SD";
+        const qTp = (payload && payload.payload && payload.payload.qType) ? payload.payload.qType : "math";
         activeSchoolLevel = lev;
+        activeQuestionType = qTp;
         startQuizForStudent(dur);
       }
     })
@@ -535,11 +534,11 @@ function syncHostChannel() {
   }
 }
 
-/* GENERATOR SOAL KUIS ACAK DENGAN TIMER PER SOAL 15s */
+/* GENERATOR SOAL KUIS ACAK (TIPE 1: MATH SIMBOL & TIPE 2: SOAL CERITA) */
 let currentAns = 0;
 let currentQuestionPoint = 10;
 let currentPushAmount = 15;
-let qTimeLeft = 15;
+let qTimeLeft = 20;
 
 function startQuizForStudent(duration) {
   document.getElementById("top-menu").classList.add("hidden");
@@ -563,7 +562,7 @@ function startQuizForStudent(duration) {
 }
 
 function startQuestionTimer() {
-  qTimeLeft = 15;
+  qTimeLeft = (activeQuestionType === "story") ? 25 : 18; // Soal cerita mendapat waktu baca lebih lama
   document.getElementById("questionTimeoutDisplay").innerText = `⏳ Soal: ${qTimeLeft}s`;
   
   clearInterval(questionTimerInterval);
@@ -573,7 +572,6 @@ function startQuestionTimer() {
       document.getElementById("questionTimeoutDisplay").innerText = `⏳ Soal: ${qTimeLeft}s`;
     } else {
       clearInterval(questionTimerInterval);
-      // SISWA KELALAIAN/TIDAK MENJAWAB -> PROSES SEBAGAI MACET/LALAI
       handleTimeoutAnswer();
     }
   }, 1000);
@@ -621,49 +619,111 @@ function generateBalancedQuiz() {
 
   let qText = "", ans = 0, fakeOpts = [];
 
-  if (activeSchoolLevel === "SD") {
-    if (diff === "easy") {
-      let a = Math.floor(Math.random() * 20) + 5, b = Math.floor(Math.random() * 20) + 5;
-      qText = `${a} + ${b} = ?`; ans = a + b;
-    } else if (diff === "medium") {
-      let a = Math.floor(Math.random() * 12) + 2, b = Math.floor(Math.random() * 9) + 2;
-      qText = `${a} × ${b} = ?`; ans = a * b;
-    } else {
-      let a = Math.floor(Math.random() * 45) + 15, b = Math.floor(Math.random() * 15) + 5;
-      qText = `${a} - ${b} = ?`; ans = a - b;
+  // TIPE 1: OPERASI MATH SIMBOL & ALJABAR
+  if (activeQuestionType === "math") {
+    if (activeSchoolLevel === "SD") {
+      if (diff === "easy") {
+        let a = Math.floor(Math.random() * 40) + 10, b = Math.floor(Math.random() * 40) + 10;
+        qText = `${a} + ${b} = ?`; ans = a + b;
+      } else if (diff === "medium") {
+        let a = Math.floor(Math.random() * 12) + 2, b = Math.floor(Math.random() * 9) + 2;
+        qText = `${a} × ${b} = ?`; ans = a * b;
+      } else {
+        let a = Math.floor(Math.random() * 8) + 2;
+        qText = `FPB dari ${a * 3} dan ${a * 5} adalah?`; ans = a;
+      }
+    } else if (activeSchoolLevel === "SMP") {
+      if (diff === "easy") {
+        let a = Math.floor(Math.random() * 400) + 100, b = Math.floor(Math.random() * 300) + 50;
+        qText = `${a} + ${b} = ?`; ans = a + b;
+      } else if (diff === "medium") {
+        let x = Math.floor(Math.random() * 10) + 2, b = Math.floor(Math.random() * 15) + 5;
+        qText = `Jika x = ${x}, berapa (3x + ${b})?`; ans = 3 * x + b;
+      } else {
+        let a = Math.floor(Math.random() * 10) + 2;
+        qText = `Hasil dari (${a})³ = ?`; ans = Math.pow(a, 3);
+      }
+    } else if (activeSchoolLevel === "SMA") {
+      if (diff === "easy") {
+        let a = Math.floor(Math.random() * 3500) + 1500, b = Math.floor(Math.random() * 1200) + 500;
+        qText = `${a} - ${b} = ?`; ans = a - b;
+      } else if (diff === "medium") {
+        let base = 2, exp = Math.floor(Math.random() * 4) + 2;
+        qText = `Nilai dari ²log(${Math.pow(base, exp)}) adalah?`; ans = exp;
+      } else {
+        let a = Math.floor(Math.random() * 5) + 2;
+        qText = `Jika f(x) = ${a}x² - 4, berapa f(3)?`; ans = a * 9 - 4;
+      }
     }
-  } else if (activeSchoolLevel === "SMP") {
-    if (diff === "easy") {
-      let x = Math.floor(Math.random() * 10) + 2, b = Math.floor(Math.random() * 8) + 1;
-      qText = `Jika x = ${x}, berapa (2x + ${b})?`; ans = 2 * x + b;
-    } else if (diff === "medium") {
-      let x = Math.floor(Math.random() * 8) + 2;
-      qText = `Hasil dari ${x}² + 5 = ?`; ans = Math.pow(x, 2) + 5;
-    } else {
-      let a = Math.floor(Math.random() * 10) + 2;
-      qText = `FPB dari ${a * 4} dan ${a * 6} adalah?`; ans = a * 2;
-    }
-  } else if (activeSchoolLevel === "SMA") {
-    if (diff === "easy") {
-      let base = 2, exp = Math.floor(Math.random() * 4) + 2;
-      qText = `Nilai dari ²log(${Math.pow(base, exp)}) adalah?`; ans = exp;
-    } else if (diff === "medium") {
-      let degs = [30, 45, 60], d = degs[Math.floor(Math.random() * degs.length)];
-      if (d === 30) { qText = `2 × sin(30°) = ?`; ans = 1; }
-      else if (d === 45) { qText = `tan(45°) + 3 = ?`; ans = 4; }
-      else { qText = `2 × cos(60°) = ?`; ans = 1; }
-    } else {
-      let a = Math.floor(Math.random() * 5) + 2;
-      qText = `Jika f(x) = ${a}x² - 3, berapa f(3)?`; ans = a * 9 - 3;
+  } 
+  // TIPE 2: SOAL CERITA MATEMATIKA (HITUNG UANG, BENDA, DLL)
+  else {
+    if (activeSchoolLevel === "SD") {
+      if (diff === "easy") {
+        let uang = (Math.floor(Math.random() * 5) + 2) * 5000;
+        let beli = Math.floor(Math.random() * 3 + 1) * 2000;
+        qText = `Budi membawa uang Rp${uang.toLocaleString()} dan membeli es krim Rp${beli.toLocaleString()}. Berapa sisa uang Budi?`;
+        ans = uang - beli;
+      } else if (diff === "medium") {
+        let keranjang = Math.floor(Math.random() * 4) + 3;
+        let isi = Math.floor(Math.random() * 6) + 4;
+        qText = `Siti membawa ${keranjang} keranjang apel. Jika setiap keranjang berisi ${isi} buah apel, berapa total seluruh apel?`;
+        ans = keranjang * isi;
+      } else {
+        let totalCokelat = Math.floor(Math.random() * 5 + 3) * 4;
+        qText = `Ada ${totalCokelat} batang cokelat yang akan dibagi rata kepada 4 anak. Berapa batang cokelat yang didapat setiap anak?`;
+        ans = totalCokelat / 4;
+      }
+    } else if (activeSchoolLevel === "SMP") {
+      if (diff === "easy") {
+        let modal = (Math.floor(Math.random() * 5) + 5) * 10000;
+        let jual = modal + (Math.floor(Math.random() * 4) + 1) * 5000;
+        qText = `Seorang pedagang membeli sepatu Rp${modal.toLocaleString()} dan menjualnya kembali Rp${jual.toLocaleString()}. Berapa keuntungan pedagang?`;
+        ans = jual - modal;
+      } else if (diff === "medium") {
+        let jam = Math.floor(Math.random() * 3) + 2;
+        let kec = (Math.floor(Math.random() * 3) + 4) * 10;
+        qText = `Sebuah mobil melaju dengan kecepatan konstan ${kec} km/jam selama ${jam} jam. Berapa jarak total yang ditempuh?`;
+        ans = kec * jam;
+      } else {
+        let umurSiswa = Math.floor(Math.random() * 3) + 12;
+        qText = `Umur Ayah adalah 3 kali umur Budi. Jika umur Budi ${umurSiswa} tahun, berapa umur Ayah?`;
+        ans = umurSiswa * 3;
+      }
+    } else if (activeSchoolLevel === "SMA") {
+      if (diff === "easy") {
+        let lembur = Math.floor(Math.random() * 4) + 2;
+        let tarif = 25000;
+        qText = `Karyawan bekerja lembur selama ${lembur} jam dengan upah Rp${tarif.toLocaleString()}/jam. Berapa total upah lembur yang diterima?`;
+        ans = lembur * tarif;
+      } else if (diff === "medium") {
+        let tabungan = 1000000;
+        let bunga = Math.floor(Math.random() * 5) + 5;
+        qText = `Tabungan awal di bank Rp1.000.000 dengan bunga tunggal ${bunga}% per tahun. Berapa total bunga setelah 1 tahun?`;
+        ans = tabungan * (bunga / 100);
+      } else {
+        let mula = 50;
+        qText = `Populasi bakteri membelah menjadi 2 kali lipat setiap jam. Jika mula-mula ada ${mula} bakteri, berapa jumlahnya setelah 3 jam?`;
+        ans = mula * Math.pow(2, 3);
+      }
     }
   }
 
   currentAns = ans;
   document.getElementById("questionText").innerText = qText;
 
-  fakeOpts = [ans, ans + 2, ans - 1, ans + 5].sort(() => Math.random() - 0.5);
+  // MEMBUAT PILIHAN GANDA ACAK PRESISI
+  fakeOpts = [ans, ans + 500, ans - 1000, ans + 2000];
+  if (ans < 100) {
+    fakeOpts = [ans, ans + 2, Math.max(1, ans - 1), ans + 5];
+  }
+  fakeOpts = Array.from(new Set(fakeOpts)).sort(() => Math.random() - 0.5);
+
   let html = "";
-  fakeOpts.forEach(o => { html += `<button class="btn-blue" onclick="checkAnswer(${o})">${o}</button>`; });
+  fakeOpts.forEach(o => { 
+    let displayVal = (typeof o === 'number' && o >= 1000) ? o.toLocaleString() : o;
+    html += `<button class="btn-blue" onclick="checkAnswer(${o})">${displayVal}</button>`; 
+  });
   document.getElementById("answerOptions").innerHTML = html;
 }
 
