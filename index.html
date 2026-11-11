@@ -133,7 +133,7 @@ input, select {
   <div id="quizArea" class="game-card hidden">
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <div id="studentTimerDisplay" class="student-timer-badge">⏱️ Time: 60s</div>
-      <div id="questionTimeoutDisplay" class="question-timer-badge">⏳ Soal: 20s</div>
+      <div id="questionTimeoutDisplay" class="question-timer-badge">⏳ Soal: 25s</div>
       <div id="levelBadgeDisplay" class="level-badge level-easy">EASY (+10)</div>
     </div>
     <h3 id="questionText" style="color:#ffca28; margin-top:15px; font-size: 19px; line-height: 1.4;">Loading question...</h3>
@@ -170,8 +170,8 @@ input, select {
       <div>
         <label style="color:#ffca28; font-weight:bold; font-size:12px;">📝 Tipe Soal:</label>
         <select id="questionTypeSelect" style="width: auto; display: inline-block; padding: 5px 8px; font-size: 13px;">
-          <option value="math">🔢 Operasi Simbol & Aljabar</option>
           <option value="story">📖 Soal Cerita Matematika</option>
+          <option value="math">🔢 Operasi Simbol & Aljabar</option>
         </select>
       </div>
     </div>
@@ -200,6 +200,12 @@ input, select {
       </div>
     </div>
     
+    <!-- TOMBOL KHUSUS MANAGEMEN KELAS GURU -->
+    <div style="display:flex; justify-content:center; gap:10px; margin-top:15px;">
+      <button class="btn-orange" onclick="bukaModalVerifikasiPIN('reset')" style="font-size:13px; padding:8px 15px;">🔄 Reset Round Scores</button>
+      <button class="btn-red" onclick="bukaModalVerifikasiPIN('delete')" style="font-size:13px; padding:8px 15px;">🗑️ Delete Class Entirely</button>
+    </div>
+
     <div id="leaderboard" style="text-align:left; background:#140b05; padding:12px; border-radius:12px; margin-top:15px;"></div>
   </div>
 </div>
@@ -212,8 +218,29 @@ input, select {
     <button id="alertCloseBtn" class="btn-blue" onclick="tutupAlert()" style="width:100%;">Close</button>
   </div>
 </div>
+
 <div id="modal-buat-kelas" class="modal-overlay">
-  <div class="modal-box"><h2 style="color:#ff9800;">👨‍🏫 Create Class</h2><input type="text" id="input-pin-baru" placeholder="Enter PIN"><div style="display:flex; gap:10px; margin-top:15px;"><button class="btn-red" onclick="tutupModalBuatKelas()" style="width:50%;">Cancel</button><button class="btn-green" onclick="prosesBuatKelas()" style="width:50%;">Create</button></div></div>
+  <div class="modal-box">
+    <h2 style="color:#ff9800;">👨‍🏫 Create Class</h2>
+    <input type="text" id="input-pin-baru" placeholder="Enter PIN (e.g., 1234)">
+    <div style="display:flex; gap:10px; margin-top:15px;">
+      <button class="btn-red" onclick="tutupModalBuatKelas()" style="width:50%;">Cancel</button>
+      <button class="btn-green" onclick="prosesBuatKelas()" style="width:50%;">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VERIFIKASI PIN GURU UNTUK RESET / HAPUS -->
+<div id="modal-verifikasi-pin" class="modal-overlay">
+  <div class="modal-box">
+    <h2 id="modal-pin-title" style="color:#ffca28;">🔒 Enter Teacher PIN</h2>
+    <p id="modal-pin-desc" style="font-size:13px; color:#ddd;">Masukkan PIN untuk konfirmasi</p>
+    <input type="password" id="input-pin-verifikasi" placeholder="ENTER PIN...">
+    <div style="display:flex; gap:10px; margin-top:15px;">
+      <button class="btn-red" onclick="tutupModalVerifikasiPIN()" style="width:50%;">Cancel</button>
+      <button class="btn-green" onclick="eksekusiAksiKelas()" style="width:50%;">Confirm</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -232,7 +259,8 @@ let isMatchActive = false;
 let animFrameReqId = null;
 
 let activeSchoolLevel = "SD";
-let activeQuestionType = "math";
+let activeQuestionType = "story";
+let pendingActionType = ""; // 'reset' atau 'delete'
 
 let redMistakes = [], blueMistakes = [];
 
@@ -251,8 +279,7 @@ function initAudio() {
 }
 
 function playEatSound() {
-  initAudio();
-  if (!audioCtx) return;
+  initAudio(); if (!audioCtx) return;
   const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
   osc.type = 'sine'; osc.frequency.setValueAtTime(400, audioCtx.currentTime);
   osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12);
@@ -261,8 +288,7 @@ function playEatSound() {
 }
 
 function playBiteSound() {
-  initAudio();
-  if (!audioCtx) return;
+  initAudio(); if (!audioCtx) return;
   const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
   osc.type = 'sawtooth'; osc.frequency.setValueAtTime(280, audioCtx.currentTime);
   osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.2);
@@ -282,19 +308,16 @@ let blueWorm = { y: canvas.height / 2, waveOffset: Math.PI, color: '#2979ff' };
 
 function init2DArena() {
   if (animFrameReqId) cancelAnimationFrame(animFrameReqId);
-  dividerX = canvas.width / 2;
-  targetDividerX = canvas.width / 2;
+  dividerX = canvas.width / 2; targetDividerX = canvas.width / 2;
   redMistakes = []; blueMistakes = [];
   animate2D();
 }
 
 function pushTerritory(teamColor, pushAmount = 18) {
   if (teamColor === "🔴") {
-    targetDividerX = Math.min(canvas.width - 30, targetDividerX + pushAmount);
-    playEatSound();
+    targetDividerX = Math.min(canvas.width - 30, targetDividerX + pushAmount); playEatSound();
   } else if (teamColor === "🔵") {
-    targetDividerX = Math.max(30, targetDividerX - pushAmount);
-    playBiteSound();
+    targetDividerX = Math.max(30, targetDividerX - pushAmount); playBiteSound();
   }
 }
 
@@ -307,7 +330,6 @@ function handleTeamMistake(teamColor, studentName, reason = "salah") {
     let victimTeamName = (teamColor === "🔴") ? "🔴 TIM MERAH" : "🔵 TIM BIRU";
     let enemyTeam = (teamColor === "🔴") ? "🔵" : "🔴";
     pushTerritory(enemyTeam, 35);
-
     showPenaltyPopUp(`⚠️ ${victimTeamName} PENALTY (-30px)`, `Siswa keliru/lalai: <b>${penaltyNamesStr}</b>`);
     if (teamColor === "🔴") redMistakes = []; else blueMistakes = [];
   }
@@ -339,8 +361,7 @@ function animate2D() {
   ctx.stroke(); ctx.closePath(); ctx.shadowBlur = 0;
 
   if (isMatchActive) {
-    redWorm.waveOffset += 0.08;
-    blueWorm.waveOffset += 0.08;
+    redWorm.waveOffset += 0.08; blueWorm.waveOffset += 0.08;
   }
 
   drawTerritoryWorm(0, dividerX - 15, canvas.height / 2, redWorm.waveOffset, redWorm.color, true);
@@ -480,29 +501,30 @@ function connectRealtimeChannel(classCode, pName = "", pTeam = "") {
 
   realtimeChannel
     .on('presence', { event: 'sync' }, () => updateLobbyUI(realtimeChannel.presenceState()))
-    .on('broadcast', { event: 'start_battle' }, (payload) => {
+    .on('broadcast', { event: 'start_battle' }, (data) => {
       if (!isTeacherHost) {
-        const dur = (payload && payload.payload && payload.payload.duration) ? payload.payload.duration : 60;
-        const lev = (payload && payload.payload && payload.payload.level) ? payload.payload.level : "SD";
-        const qTp = (payload && payload.payload && payload.payload.qType) ? payload.payload.qType : "math";
-        activeSchoolLevel = lev;
-        activeQuestionType = qTp;
+        const payloadData = (data && data.payload) ? data.payload : {};
+        const dur = payloadData.duration || 60;
+        const lev = payloadData.level || "SD";
+        const qTp = payloadData.qType || "story";
+        
+        activeSchoolLevel = lev; activeQuestionType = qTp;
         startQuizForStudent(dur);
       }
     })
-    .on('broadcast', { event: 'student_correct_answer' }, (payload) => {
-      if (isTeacherHost) {
-        pushTerritory(payload.payload.team, payload.payload.pushAmount);
+    .on('broadcast', { event: 'student_correct_answer' }, (data) => {
+      if (isTeacherHost && data && data.payload) {
+        pushTerritory(data.payload.team, data.payload.pushAmount);
       }
     })
-    .on('broadcast', { event: 'student_wrong_answer' }, (payload) => {
-      if (isTeacherHost) {
-        handleTeamMistake(payload.payload.team, payload.payload.studentName, payload.payload.reason);
+    .on('broadcast', { event: 'student_wrong_answer' }, (data) => {
+      if (isTeacherHost && data && data.payload) {
+        handleTeamMistake(data.payload.team, data.payload.studentName, data.payload.reason);
       }
     })
-    .on('broadcast', { event: 'end_battle' }, (payload) => {
-      if (!isTeacherHost) {
-        handleStudentGameOver(payload.payload);
+    .on('broadcast', { event: 'end_battle' }, (data) => {
+      if (!isTeacherHost && data && data.payload) {
+        handleStudentGameOver(data.payload);
       }
     })
     .subscribe(async (status) => {
@@ -534,7 +556,7 @@ function syncHostChannel() {
   }
 }
 
-/* GENERATOR SOAL KUIS ACAK (TIPE 1: MATH SIMBOL & TIPE 2: SOAL CERITA) */
+/* GENERATOR SOAL KUIS ACAK */
 let currentAns = 0;
 let currentQuestionPoint = 10;
 let currentPushAmount = 15;
@@ -553,8 +575,7 @@ function startQuizForStudent(duration) {
     if (studentTimeLeft >= 0) {
       document.getElementById("studentTimerDisplay").innerText = `⏱️ Time: ${studentTimeLeft}s`;
     } else {
-      clearInterval(studentTimerInterval);
-      clearInterval(questionTimerInterval);
+      clearInterval(studentTimerInterval); clearInterval(questionTimerInterval);
     }
   }, 1000);
 
@@ -562,7 +583,7 @@ function startQuizForStudent(duration) {
 }
 
 function startQuestionTimer() {
-  qTimeLeft = (activeQuestionType === "story") ? 25 : 18; // Soal cerita mendapat waktu baca lebih lama
+  qTimeLeft = (activeQuestionType === "story") ? 25 : 18;
   document.getElementById("questionTimeoutDisplay").innerText = `⏳ Soal: ${qTimeLeft}s`;
   
   clearInterval(questionTimerInterval);
@@ -571,8 +592,7 @@ function startQuestionTimer() {
     if (qTimeLeft >= 0) {
       document.getElementById("questionTimeoutDisplay").innerText = `⏳ Soal: ${qTimeLeft}s`;
     } else {
-      clearInterval(questionTimerInterval);
-      handleTimeoutAnswer();
+      clearInterval(questionTimerInterval); handleTimeoutAnswer();
     }
   }, 1000);
 }
@@ -619,45 +639,7 @@ function generateBalancedQuiz() {
 
   let qText = "", ans = 0, fakeOpts = [];
 
-  // TIPE 1: OPERASI MATH SIMBOL & ALJABAR
-  if (activeQuestionType === "math") {
-    if (activeSchoolLevel === "SD") {
-      if (diff === "easy") {
-        let a = Math.floor(Math.random() * 40) + 10, b = Math.floor(Math.random() * 40) + 10;
-        qText = `${a} + ${b} = ?`; ans = a + b;
-      } else if (diff === "medium") {
-        let a = Math.floor(Math.random() * 12) + 2, b = Math.floor(Math.random() * 9) + 2;
-        qText = `${a} × ${b} = ?`; ans = a * b;
-      } else {
-        let a = Math.floor(Math.random() * 8) + 2;
-        qText = `FPB dari ${a * 3} dan ${a * 5} adalah?`; ans = a;
-      }
-    } else if (activeSchoolLevel === "SMP") {
-      if (diff === "easy") {
-        let a = Math.floor(Math.random() * 400) + 100, b = Math.floor(Math.random() * 300) + 50;
-        qText = `${a} + ${b} = ?`; ans = a + b;
-      } else if (diff === "medium") {
-        let x = Math.floor(Math.random() * 10) + 2, b = Math.floor(Math.random() * 15) + 5;
-        qText = `Jika x = ${x}, berapa (3x + ${b})?`; ans = 3 * x + b;
-      } else {
-        let a = Math.floor(Math.random() * 10) + 2;
-        qText = `Hasil dari (${a})³ = ?`; ans = Math.pow(a, 3);
-      }
-    } else if (activeSchoolLevel === "SMA") {
-      if (diff === "easy") {
-        let a = Math.floor(Math.random() * 3500) + 1500, b = Math.floor(Math.random() * 1200) + 500;
-        qText = `${a} - ${b} = ?`; ans = a - b;
-      } else if (diff === "medium") {
-        let base = 2, exp = Math.floor(Math.random() * 4) + 2;
-        qText = `Nilai dari ²log(${Math.pow(base, exp)}) adalah?`; ans = exp;
-      } else {
-        let a = Math.floor(Math.random() * 5) + 2;
-        qText = `Jika f(x) = ${a}x² - 4, berapa f(3)?`; ans = a * 9 - 4;
-      }
-    }
-  } 
-  // TIPE 2: SOAL CERITA MATEMATIKA (HITUNG UANG, BENDA, DLL)
-  else {
+  if (activeQuestionType === "story") {
     if (activeSchoolLevel === "SD") {
       if (diff === "easy") {
         let uang = (Math.floor(Math.random() * 5) + 2) * 5000;
@@ -692,13 +674,11 @@ function generateBalancedQuiz() {
       }
     } else if (activeSchoolLevel === "SMA") {
       if (diff === "easy") {
-        let lembur = Math.floor(Math.random() * 4) + 2;
-        let tarif = 25000;
+        let lembur = Math.floor(Math.random() * 4) + 2; let tarif = 25000;
         qText = `Karyawan bekerja lembur selama ${lembur} jam dengan upah Rp${tarif.toLocaleString()}/jam. Berapa total upah lembur yang diterima?`;
         ans = lembur * tarif;
       } else if (diff === "medium") {
-        let tabungan = 1000000;
-        let bunga = Math.floor(Math.random() * 5) + 5;
+        let tabungan = 1000000; let bunga = Math.floor(Math.random() * 5) + 5;
         qText = `Tabungan awal di bank Rp1.000.000 dengan bunga tunggal ${bunga}% per tahun. Berapa total bunga setelah 1 tahun?`;
         ans = tabungan * (bunga / 100);
       } else {
@@ -707,12 +687,46 @@ function generateBalancedQuiz() {
         ans = mula * Math.pow(2, 3);
       }
     }
+  } else {
+    if (activeSchoolLevel === "SD") {
+      if (diff === "easy") {
+        let a = Math.floor(Math.random() * 40) + 10, b = Math.floor(Math.random() * 40) + 10;
+        qText = `${a} + ${b} = ?`; ans = a + b;
+      } else if (diff === "medium") {
+        let a = Math.floor(Math.random() * 12) + 2, b = Math.floor(Math.random() * 9) + 2;
+        qText = `${a} × ${b} = ?`; ans = a * b;
+      } else {
+        let a = Math.floor(Math.random() * 8) + 2;
+        qText = `FPB dari ${a * 3} dan ${a * 5} adalah?`; ans = a;
+      }
+    } else if (activeSchoolLevel === "SMP") {
+      if (diff === "easy") {
+        let a = Math.floor(Math.random() * 400) + 100, b = Math.floor(Math.random() * 300) + 50;
+        qText = `${a} + ${b} = ?`; ans = a + b;
+      } else if (diff === "medium") {
+        let x = Math.floor(Math.random() * 10) + 2, b = Math.floor(Math.random() * 15) + 5;
+        qText = `Jika x = ${x}, berapa (3x + ${b})?`; ans = 3 * x + b;
+      } else {
+        let a = Math.floor(Math.random() * 10) + 2;
+        qText = `Hasil dari (${a})³ = ?`; ans = Math.pow(a, 3);
+      }
+    } else if (activeSchoolLevel === "SMA") {
+      if (diff === "easy") {
+        let a = Math.floor(Math.random() * 3500) + 1500, b = Math.floor(Math.random() * 1200) + 500;
+        qText = `${a} - ${b} = ?`; ans = a - b;
+      } else if (diff === "medium") {
+        let base = 2, exp = Math.floor(Math.random() * 4) + 2;
+        qText = `Nilai dari ²log(${Math.pow(base, exp)}) adalah?`; ans = exp;
+      } else {
+        let a = Math.floor(Math.random() * 5) + 2;
+        qText = `Jika f(x) = ${a}x² - 4, berapa f(3)?`; ans = a * 9 - 4;
+      }
+    }
   }
 
   currentAns = ans;
   document.getElementById("questionText").innerText = qText;
 
-  // MEMBUAT PILIHAN GANDA ACAK PRESISI
   fakeOpts = [ans, ans + 500, ans - 1000, ans + 2000];
   if (ans < 100) {
     fakeOpts = [ans, ans + 2, Math.max(1, ans - 1), ans + 5];
@@ -738,8 +752,7 @@ async function checkAnswer(val) {
     
     if (realtimeChannel) {
       realtimeChannel.send({
-        type: 'broadcast',
-        event: 'student_correct_answer',
+        type: 'broadcast', event: 'student_correct_answer',
         payload: { team: team, pushAmount: currentPushAmount }
       });
     }
@@ -749,8 +762,7 @@ async function checkAnswer(val) {
     
     if (realtimeChannel) {
       realtimeChannel.send({
-        type: 'broadcast',
-        event: 'student_wrong_answer',
+        type: 'broadcast', event: 'student_wrong_answer',
         payload: { team: team, studentName: pName, reason: "salah" }
       });
     }
@@ -763,8 +775,7 @@ async function checkAnswer(val) {
 }
 
 function handleStudentGameOver(data) {
-  clearInterval(studentTimerInterval);
-  clearInterval(questionTimerInterval);
+  clearInterval(studentTimerInterval); clearInterval(questionTimerInterval);
   const myTeam = document.getElementById("teamSelect").value;
   let resultStatusText = "";
 
@@ -789,12 +800,9 @@ function resetStudentToLobby() {
   document.getElementById("top-menu").classList.remove("hidden");
   
   const alertCloseBtn = document.getElementById("alertCloseBtn");
-  alertCloseBtn.innerText = "Close";
-  alertCloseBtn.onclick = tutupAlert;
+  alertCloseBtn.innerText = "Close"; alertCloseBtn.onclick = tutupAlert;
 
-  score = 0;
-  currentRecordId = null;
-  cekInput();
+  score = 0; currentRecordId = null; cekInput();
 }
 
 async function syncScoreToDatabase() {
@@ -827,8 +835,7 @@ async function renderBoard() {
 function toggleBoard() {
   document.getElementById("boardPanel").classList.toggle("hidden");
   if(!document.getElementById("boardPanel").classList.contains("hidden")) {
-    init2DArena();
-    updateTimerHUDPreview();
+    init2DArena(); updateTimerHUDPreview();
   }
 }
 
@@ -856,6 +863,79 @@ async function prosesBuatKelas() {
   syncHostChannel();
   
   munculkanAlert("✅ Class Created!", `Class Code: <b style='font-size:32px; color:#ffca28;'>${code}</b>`);
+}
+
+/* LOGIKA VERIFIKASI PIN KHUSUS UNTUK RESET DAN HAPUS DATA KELAS */
+function bukaModalVerifikasiPIN(actionType) {
+  pendingActionType = actionType;
+  const titleEl = document.getElementById("modal-pin-title");
+  const descEl = document.getElementById("modal-pin-desc");
+  document.getElementById("input-pin-verifikasi").value = "";
+
+  if (actionType === "reset") {
+    titleEl.innerText = "🔄 Reset Round Scores";
+    descEl.innerText = "Masukkan PIN untuk mengosongkan skor ronde ini";
+  } else {
+    titleEl.innerText = "🗑️ Delete Class Entirely";
+    descEl.innerText = "Masukkan PIN untuk menghapus total data kelas ini";
+  }
+
+  document.getElementById("modal-verifikasi-pin").style.display = "flex";
+}
+
+function tutupModalVerifikasiPIN() {
+  document.getElementById("modal-verifikasi-pin").style.display = "none";
+}
+
+async function eksekusiAksiKelas() {
+  const inputPIN = document.getElementById("input-pin-verifikasi").value.trim();
+  const classCode = document.getElementById("filterClass").value.trim().toUpperCase();
+
+  if (!classCode) {
+    munculkanAlert("❌ Error", "Class Code tidak ditemukan.");
+    tutupModalVerifikasiPIN();
+    return;
+  }
+
+  // Verifikasi PIN dengan data yang tersimpan di Supabase untuk HOST_PIN
+  const { data, error } = await supabaseClient
+    .from("scores")
+    .select("mode")
+    .eq("class", classCode)
+    .eq("name", "HOST_PIN")
+    .single();
+
+  if (error || !data || data.mode !== inputPIN) {
+    munculkanAlert("❌ PIN Wrong!", "PIN yang Anda masukkan salah. Akses ditolak.");
+    return;
+  }
+
+  tutupModalVerifikasiPIN();
+
+  // AKSI 1: RESET HANYA SKOR SISWA (RONDE BARU)
+  if (pendingActionType === "reset") {
+    await supabaseClient
+      .from("scores")
+      .delete()
+      .eq("class", classCode)
+      .neq("name", "HOST_PIN");
+
+    init2DArena();
+    renderBoard();
+    munculkanAlert("✅ Reset Complete!", "Seluruh skor siswa telah dikosongkan. Siap untuk ronde baru!");
+  } 
+  // AKSI 2: HAPUS TOTAL KELAS BESERTA PIN
+  else if (pendingActionType === "delete") {
+    await supabaseClient
+      .from("scores")
+      .delete()
+      .eq("class", classCode);
+
+    munculkanAlert("🗑️ Class Deleted!", "Data kelas dan PIN telah dihapus total dari database.");
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+  }
 }
 
 function munculkanAlert(j, p) {
