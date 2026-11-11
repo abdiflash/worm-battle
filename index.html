@@ -227,12 +227,12 @@ function playBiteSound() {
   osc.start(); osc.stop(audioCtx.currentTime + 0.2);
 }
 
-/* CANVAS 2D ENGINE (SUPER FAST & STABLE) */
+/* CANVAS 2D ENGINE (ANTI MACET DINDING) */
 const canvas = document.getElementById("wormCanvas");
 const ctx = canvas.getContext("2d");
 
-let redWorm2D = { x: 120, y: 160, angle: 0, length: 10, speed: 2.2, color: '#ff5252', eyeColor: '#ffffff', segments: [] };
-let blueWorm2D = { x: 430, y: 160, angle: Math.PI, length: 10, speed: 2.2, color: '#2979ff', eyeColor: '#ffffff', segments: [] };
+let redWorm2D = { x: 120, y: 160, angle: 0, length: 10, speed: 2.2, color: '#ff5252', segments: [] };
+let blueWorm2D = { x: 430, y: 160, angle: Math.PI, length: 10, speed: 2.2, color: '#2979ff', segments: [] };
 let activeFoods = [];
 let lastBiteTime = 0;
 
@@ -260,8 +260,8 @@ function spawnFoodForTeam(teamColor) {
   const foodY = worm.y + Math.sin(worm.angle) * 45;
 
   activeFoods.push({
-    x: Math.max(20, Math.min(canvas.width - 20, foodX)),
-    y: Math.max(20, Math.min(canvas.height - 20, foodY)),
+    x: Math.max(25, Math.min(canvas.width - 25, foodX)),
+    y: Math.max(25, Math.min(canvas.height - 25, foodY)),
     color: (teamColor === "🔴") ? '#ff5252' : '#2979ff',
     targetWorm: worm
   });
@@ -272,7 +272,7 @@ function animate2D() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // GAMBAR GRID BACKGROUND TANAH
+  // BACKGROUND GRID ARENA
   ctx.strokeStyle = "rgba(255,255,255,0.03)";
   ctx.lineWidth = 1;
   for(let x=0; x<canvas.width; x+=25) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
@@ -282,24 +282,29 @@ function animate2D() {
     let chaser = (redWorm2D.length >= blueWorm2D.length) ? redWorm2D : blueWorm2D;
     let victim = (chaser === redWorm2D) ? blueWorm2D : redWorm2D;
 
-    // STEERING AI AUTOMATIC
+    // TARGETING AI
     let dx = victim.x - chaser.x;
     let dy = victim.y - chaser.y;
     chaser.angle = Math.atan2(dy, dx);
-    victim.angle = chaser.angle + 0.7; // Menghindar memutar
+    victim.angle = chaser.angle + 0.75;
 
     [redWorm2D, blueWorm2D].forEach(w => {
-      let speed = (w === chaser) ? 2.4 : 1.8;
-      w.x += Math.cos(w.angle) * speed;
-      w.y += Math.sin(w.angle) * speed;
+      let speed = (w === chaser) ? 2.3 : 1.8;
+      
+      let nextX = w.x + Math.cos(w.angle) * speed;
+      let nextY = w.y + Math.sin(w.angle) * speed;
 
-      // Wrap Screen (Batas Layar Smooth)
-      if(w.x < 10) w.x = canvas.width - 10;
-      if(w.x > canvas.width - 10) w.x = 10;
-      if(w.y < 10) w.y = canvas.height - 10;
-      if(w.y > canvas.height - 10) w.y = 10;
+      // PANTULAN DINDING OTOMATIS (MENCEGAH STUCK/MACET DI TEPIAN)
+      const margin = 20;
+      if (nextX < margin) { w.angle = Math.PI - w.angle; nextX = margin; }
+      if (nextX > canvas.width - margin) { w.angle = Math.PI - w.angle; nextX = canvas.width - margin; }
+      if (nextY < margin) { w.angle = -w.angle; nextY = margin; }
+      if (nextY > canvas.height - margin) { w.angle = -w.angle; nextY = canvas.height - margin; }
 
-      // FISIKA LEKUKAN INVERSE KINEMATICS (IK) - GUARANTEED ANTI-HANCUR / TERPUTUS
+      w.x = nextX;
+      w.y = nextY;
+
+      // INVERSE KINEMATICS PRESISE DENGAN CLAMPING
       w.segments[0] = { x: w.x, y: w.y };
       for (let i = 1; i < 30; i++) {
         let prev = w.segments[i - 1];
@@ -307,17 +312,21 @@ function animate2D() {
         let segDx = prev.x - curr.x;
         let segDy = prev.y - curr.y;
         let dist = Math.hypot(segDx, segDy);
-        let targetDist = 11; // Jarak antar segmen presisi
+        let targetDist = 11;
 
-        if (dist > targetDist) {
+        if (dist > targetDist && dist > 0) {
           let segAngle = Math.atan2(segDy, segDx);
           curr.x = prev.x - Math.cos(segAngle) * targetDist;
           curr.y = prev.y - Math.sin(segAngle) * targetDist;
         }
+
+        // Kunci segmen badan tetap di dalam canvas
+        curr.x = Math.max(10, Math.min(canvas.width - 10, curr.x));
+        curr.y = Math.max(10, Math.min(canvas.height - 10, curr.y));
       }
     });
 
-    // MAKAN MAKANAN HASIL JAWABAN BENAR SISWA
+    // MAKAN MAKANAN HASIL JAWABAN SISWA
     activeFoods.forEach((f, idx) => {
       if(Math.hypot(f.targetWorm.x - f.x, f.targetWorm.y - f.y) < 18) {
         f.targetWorm.length = Math.min(30, f.targetWorm.length + 1);
@@ -326,7 +335,7 @@ function animate2D() {
       }
     });
 
-    // BENTURAN CACING PANJANG MENGGIGIT CACING PENDEK
+    // GIGITAN CACING
     let distBetween = Math.hypot(redWorm2D.x - blueWorm2D.x, redWorm2D.y - blueWorm2D.y);
     if(distBetween < 22) {
       let now = Date.now();
@@ -342,7 +351,7 @@ function animate2D() {
     }
   }
 
-  // GAMBAR MAKANAN (ORB ENERGI)
+  // GAMBAR MAKANAN
   activeFoods.forEach(f => {
     ctx.beginPath();
     ctx.arc(f.x, f.y, 6, 0, Math.PI * 2);
@@ -354,9 +363,8 @@ function animate2D() {
     ctx.shadowBlur = 0;
   });
 
-  // GAMBAR DUA CACING 2D VISUAL
+  // GAMBAR CACING
   [redWorm2D, blueWorm2D].forEach(w => {
-    // Gambar Segmen Badan (dari Ekor ke Leher)
     for (let i = w.length - 1; i >= 1; i--) {
       let seg = w.segments[i];
       let radius = Math.max(5, 12 - (i * 0.25));
@@ -367,7 +375,6 @@ function animate2D() {
       ctx.closePath();
     }
 
-    // Gambar Kepala Cacing Lucu + Mata Kartun
     let head = w.segments[0];
     ctx.beginPath();
     ctx.arc(head.x, head.y, 14, 0, Math.PI * 2);
@@ -378,7 +385,6 @@ function animate2D() {
     ctx.closePath();
     ctx.shadowBlur = 0;
 
-    // Mata Kiri & Kanan
     let eyeAngleLeft = w.angle - 0.45;
     let eyeAngleRight = w.angle + 0.45;
     let exL = head.x + Math.cos(eyeAngleLeft) * 8;
@@ -386,12 +392,10 @@ function animate2D() {
     let exR = head.x + Math.cos(eyeAngleRight) * 8;
     let eyR = head.y + Math.sin(eyeAngleRight) * 8;
 
-    // Pupil Putih
     ctx.fillStyle = "#ffffff";
     ctx.beginPath(); ctx.arc(exL, eyL, 4, 0, Math.PI*2); ctx.fill(); ctx.closePath();
     ctx.beginPath(); ctx.arc(exR, eyR, 4, 0, Math.PI*2); ctx.fill(); ctx.closePath();
 
-    // Pupil Hitam
     let pxL = exL + Math.cos(w.angle) * 1.5;
     let pyL = eyL + Math.sin(w.angle) * 1.5;
     let pxR = exR + Math.cos(w.angle) * 1.5;
