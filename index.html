@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2D Worm Tug-of-War Class Arena</title>
+
+<!-- Fun Font for Kids -->
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+html, body {
+  margin: 0; padding: 0; width: 100%; min-height: 100vh;
+  font-family: 'Fredoka', sans-serif; background-color: #1a0f07;
+  color: #fff; text-align: center; overflow-x: hidden;
+}
+
+.main-wrapper {
+  width: 100%; max-width: 650px; margin: 0 auto; padding: 30px 15px; box-sizing: border-box;
+}
+
+h1 { margin: 0 0 15px 0; font-size: 30px; color: #ffca28; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+
+.game-card {
+  background: rgba(45, 26, 14, 0.95); border-radius: 24px; padding: 25px 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 3px solid #4a2d18; margin-bottom: 20px; position: relative;
+}
+
+button {
+  font-family: 'Fredoka', sans-serif; font-size: 16px; font-weight: 700;
+  padding: 12px 20px; margin: 5px; border-radius: 16px; border: none; cursor: pointer; transition: 0.15s; color: #fff;
+}
+button:active:not(:disabled) { transform: translateY(4px); }
+button:disabled { background: #4a382c !important; color: #8c7365 !important; cursor: not-allowed; }
+
+.btn-green { background: #4caf50; box-shadow: 0 5px 0 #2e7d32; }
+.btn-orange { background: #ff9800; box-shadow: 0 5px 0 #ef6c00; }
+.btn-blue { background: #2979ff; box-shadow: 0 5px 0 #1565c0; }
+.btn-purple { background: #9c27b0; box-shadow: 0 5px 0 #6a1b9a; font-size: 18px; padding: 14px 28px; width: 90%; }
+.btn-red { background: #ff5252; box-shadow: 0 5px 0 #c62828; }
+
+input, select {
+  padding: 12px; border-radius: 16px; border: 2px solid #5c3a21; margin: 8px auto;
+  width: 90%; max-width: 320px; font-size: 16px; font-family: 'Fredoka', sans-serif;
+  text-align: center; box-sizing: border-box; background: #140b05; color: #fff; display: block;
+}
+
+#canvasContainer {
+  width: 100%; border-radius: 20px; border: 3px solid #ffca28;
+  overflow: hidden; margin: 15px 0; background: #140b05; position: relative;
+  box-shadow: inset 0 0 25px rgba(0,0,0,0.9);
+}
+
+#wormCanvas { display: block; margin: 0 auto; background: #120903; }
+
+#timerHUD {
+  position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.75); padding: 6px 18px; border-radius: 20px;
+  font-size: 22px; font-weight: bold; color: #ffca28; border: 2px solid #ffca28;
+  z-index: 10;
+}
+
+.student-timer-badge {
+  display: inline-block; background: rgba(0,0,0,0.5); padding: 4px 15px;
+  border-radius: 12px; border: 1px solid #ffca28; color: #ffca28;
+  font-size: 18px; font-weight: bold; margin-bottom: 10px;
+}
+
+.level-badge {
+  display: inline-block; padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: bold; margin-left: 8px;
+}
+.level-easy { background: #4caf50; color: #fff; }
+.level-medium { background: #ff9800; color: #fff; }
+.level-hard { background: #ff5252; color: #fff; }
+
+.lobby-container { display: flex; justify-content: space-between; gap: 10px; margin-top: 15px; }
+.team-column { width: 48%; background: #140b05; border-radius: 16px; padding: 10px; border: 2px solid #3d2311; box-sizing: border-box; }
+.player-tag-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.player-tag { padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; color: #fff; }
+.tag-red { background: #ff5252; } .tag-blue { background: #2979ff; }
+
+.modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; }
+.modal-box { background: #2d1a0e; padding: 25px; border-radius: 24px; width: 90%; max-width: 340px; border: 3px solid #ffca28; text-align: center; }
+.hidden { display: none !important; }
+
+#fullscreen-btn { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; padding: 6px 12px; font-size: 12px; }
+</style>
+</head>
+
+<body>
+<button id="fullscreen-btn">🔍 Full Screen</button>
+
+<div class="main-wrapper">
+  <h1>🪱 Worm Tug-of-War Arena</h1>
+
+  <!-- STUDENT MENU -->
+  <div id="top-menu" class="game-card">
+    <button id="createClassBtn" class="btn-orange" onclick="bukaModalBuatKelas()" style="width: 100%; margin-bottom:15px;">
+      👨‍🏫 TEACHER: CREATE CLASS CODE
+    </button>
+
+    <div style="background: #140b05; padding: 15px; border-radius: 16px; border: 2px dashed #ffca28; margin-bottom: 15px;">
+      <h3 style="color: #ffca28; margin-top:0;">🎮 STUDENT JOIN</h3>
+      <input id="class" placeholder="ENTER CLASS CODE..." oninput="cekInput()" style="text-transform: uppercase;">
+      <input id="name" placeholder="ENTER YOUR NAME..." oninput="cekInput()">
+      
+      <select id="teamSelect" onchange="cekInput()">
+        <option value="">👤 Play Individual</option>
+        <option value="🔴">🔴 Red Worm Team</option>
+        <option value="🔵">🔵 Blue Worm Team</option>
+      </select>
+    </div>
+
+    <button id="scoreboardBtn" class="btn-blue" onclick="toggleBoard()">📊 Scoreboard</button>
+    <button id="startBtn" class="btn-purple" onclick="startGame()" disabled>START GAME</button>
+  </div>
+
+  <!-- QUIZ AREA SISWA -->
+  <div id="quizArea" class="game-card hidden">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div id="studentTimerDisplay" class="student-timer-badge">⏱️ Time: 60s</div>
+      <div id="levelBadgeDisplay" class="level-badge level-easy">EASY (+10)</div>
+    </div>
+    <h2 id="questionText" style="color:#ffca28; margin-top:15px;">Loading question...</h2>
+    <div id="answerOptions" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px;"></div>
+    <div id="quizMsg" style="margin-top:15px; font-weight:bold;"></div>
+  </div>
+
+  <!-- LIVEBOARD GURU -->
+  <div id="boardPanel" class="game-card hidden">
+    <h3>📊 Live Worm Tug-of-War Arena</h3>
+    
+    <div style="display:flex; justify-content:center; gap:5px; margin-bottom:10px;">
+      <input id="filterClass" placeholder="CLASS CODE..." style="width:50%; margin:0; text-transform: uppercase;" oninput="syncHostChannel()">
+      <button class="btn-blue" onclick="renderBoard()" style="margin:0;">Search</button>
+    </div>
+
+    <div style="margin-bottom:10px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+      <div>
+        <label style="color:#ffca28; font-weight:bold; font-size:13px;">⏱️ Duration:</label>
+        <select id="matchTimerSelect" onchange="updateTimerHUDPreview()" style="width: auto; display: inline-block; padding: 6px 10px;">
+          <option value="60">60s</option>
+          <option value="90">90s</option>
+          <option value="120">120s</option>
+        </select>
+      </div>
+      <div>
+        <label style="color:#ffca28; font-weight:bold; font-size:13px;">🎓 Level Soal:</label>
+        <select id="schoolLevelSelect" style="width: auto; display: inline-block; padding: 6px 10px;">
+          <option value="SD">🏫 SD (Sekolah Dasar)</option>
+          <option value="SMP">🏫 SMP (Menengah Pertama)</option>
+          <option value="SMA">🏫 SMA (Menengah Atas)</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="hostStartBtn" class="btn-green" onclick="triggerHostStartMatch()" style="width: 100%; font-size: 16px; padding: 12px; margin-bottom: 10px;">
+      🚀 START WORM BATTLE (ALL STUDENTS)
+    </button>
+
+    <div id="canvasContainer">
+      <div id="timerHUD">⏱️ 60s</div>
+      <canvas id="wormCanvas" width="550" height="320"></canvas>
+    </div>
+
+    <div class="lobby-container">
+      <div class="team-column" style="border-color: #ff5252;">
+        <h4 style="color: #ff5252; margin:0 0 5px 0;">🔴 Red Territory (<span id="redTerritoryPct">50</span>%)</h4>
+        <div id="redTeamList" class="player-tag-list"></div>
+      </div>
+      <div class="team-column" style="border-color: #2979ff;">
+        <h4 style="color: #2979ff; margin:0 0 5px 0;">🔵 Blue Territory (<span id="blueTerritoryPct">50</span>%)</h4>
+        <div id="blueTeamList" class="player-tag-list"></div>
+      </div>
+    </div>
+    
+    <div id="leaderboard" style="text-align:left; background:#140b05; padding:12px; border-radius:12px; margin-top:15px;"></div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="custom-alert" class="modal-overlay">
+  <div class="modal-box">
+    <h2 id="alert-title">Info</h2>
+    <p id="alert-msg"></p>
+    <button id="alertCloseBtn" class="btn-blue" onclick="tutupAlert()" style="width:100%;">Close</button>
+  </div>
+</div>
+<div id="modal-buat-kelas" class="modal-overlay">
+  <div class="modal-box"><h2 style="color:#ff9800;">👨‍🏫 Create Class</h2><input type="text" id="input-pin-baru" placeholder="Enter PIN"><div style="display:flex; gap:10px; margin-top:15px;"><button class="btn-red" onclick="tutupModalBuatKelas()" style="width:50%;">Cancel</button><button class="btn-green" onclick="prosesBuatKelas()" style="width:50%;">Create</button></div></div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://huppyicherwdhgxrcyav.supabase.co";
+const SUPABASE_KEY = "sb_publishable_OJPFFYPGJrDUkjD-gVMOOw_GET4MdOW";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let realtimeChannel = null, currentJoinedClass = "", isTeacherHost = false;
+let score = 0, currentRecordId = null, autoRefreshTimer = null;
+
+let matchTimer = null;
+let studentTimerInterval = null;
+let timeLeft = 60;
+let isMatchActive = false;
+let animFrameReqId = null;
+
+let activeSchoolLevel = "SD"; // Default Level Soal
+
+function updateTimerHUDPreview() {
+  const val = document.getElementById("matchTimerSelect").value;
+  document.getElementById("timerHUD").innerText = `⏱️ ${val}s`;
+}
+
+/* WEB AUDIO API */
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) audioCtx = new AudioContext();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playEatSound() {
+  initAudio();
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12);
+  gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+}
+
+function playBiteSound() {
+  initAudio();
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(280, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.2);
+  gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+}
+
+/* CANVAS DUAL-ZONE TUG-OF-WAR ENGINE */
+const canvas = document.getElementById("wormCanvas");
+const ctx = canvas.getContext("2d");
+
+let dividerX = canvas.width / 2;
+let targetDividerX = canvas.width / 2;
+
+let redWorm = { y: canvas.height / 2, waveOffset: 0, color: '#ff5252' };
+let blueWorm = { y: canvas.height / 2, waveOffset: Math.PI, color: '#2979ff' };
+
+function init2DArena() {
+  if (animFrameReqId) cancelAnimationFrame(animFrameReqId);
+  dividerX = canvas.width / 2;
+  targetDividerX = canvas.width / 2;
+  animate2D();
+}
+
+function pushTerritory(teamColor, pushAmount = 18) {
+  if (teamColor === "🔴") {
+    targetDividerX = Math.min(canvas.width - 30, targetDividerX + pushAmount);
+    playEatSound();
+  } else if (teamColor === "🔵") {
+    targetDividerX = Math.max(30, targetDividerX - pushAmount);
+    playBiteSound();
+  }
+}
+
+function animate2D() {
+  animFrameReqId = requestAnimationFrame(animate2D);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  dividerX += (targetDividerX - dividerX) * 0.1;
+
+  ctx.fillStyle = "rgba(239, 68, 68, 0.12)"; ctx.fillRect(0, 0, dividerX, canvas.height);
+  ctx.fillStyle = "rgba(41, 121, 255, 0.12)"; ctx.fillRect(dividerX, 0, canvas.width - dividerX, canvas.height);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.03)"; ctx.lineWidth = 1;
+  for(let x=0; x<canvas.width; x+=25) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+  for(let y=0; y<canvas.height; y+=25) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+
+  ctx.beginPath(); ctx.moveTo(dividerX, 0); ctx.lineTo(dividerX, canvas.height);
+  ctx.strokeStyle = "#ffca28"; ctx.lineWidth = 4; ctx.shadowBlur = 12; ctx.shadowColor = "#ffca28";
+  ctx.stroke(); ctx.closePath(); ctx.shadowBlur = 0;
+
+  if (isMatchActive) {
+    redWorm.waveOffset += 0.08;
+    blueWorm.waveOffset += 0.08;
+  }
+
+  drawTerritoryWorm(0, dividerX - 15, canvas.height / 2, redWorm.waveOffset, redWorm.color, true);
+  drawTerritoryWorm(canvas.width, dividerX + 15, canvas.height / 2, blueWorm.waveOffset, blueWorm.color, false);
+
+  let redPct = Math.round((dividerX / canvas.width) * 100);
+  let bluePct = 100 - redPct;
+  document.getElementById("redTerritoryPct").innerText = redPct;
+  document.getElementById("blueTerritoryPct").innerText = bluePct;
+}
+
+function drawTerritoryWorm(startX, headX, centerY, waveOffset, colorHex, isFacingRight) {
+  let segCount = 22;
+  let points = [];
+
+  for (let i = 0; i < segCount; i++) {
+    let t = i / (segCount - 1);
+    let x = startX + (headX - startX) * t;
+    let wave = Math.sin(waveOffset + i * 0.35) * 12;
+    let y = centerY + wave;
+    points.push({ x: x, y: y });
+  }
+
+  for (let i = 0; i < points.length - 1; i++) {
+    let p = points[i];
+    let radius = Math.max(5, 14 * (i / segCount));
+    ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fillStyle = colorHex; ctx.fill(); ctx.closePath();
+  }
+
+  let head = points[points.length - 1];
+  ctx.beginPath(); ctx.arc(head.x, head.y, 15, 0, Math.PI * 2);
+  ctx.fillStyle = colorHex; ctx.shadowBlur = 10; ctx.shadowColor = colorHex; ctx.fill(); ctx.closePath(); ctx.shadowBlur = 0;
+
+  let eyeOffsetX = isFacingRight ? 5 : -5;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath(); ctx.arc(head.x + eyeOffsetX, head.y - 5, 4, 0, Math.PI * 2); ctx.fill(); ctx.closePath();
+  ctx.beginPath(); ctx.arc(head.x + eyeOffsetX, head.y + 5, 4, 0, Math.PI * 2); ctx.fill(); ctx.closePath();
+
+  ctx.fillStyle = "#000000";
+  let pupilOffsetX = isFacingRight ? 1.5 : -1.5;
+  ctx.beginPath(); ctx.arc(head.x + eyeOffsetX + pupilOffsetX, head.y - 5, 2, 0, Math.PI * 2); ctx.fill(); ctx.closePath();
+  ctx.beginPath(); ctx.arc(head.x + eyeOffsetX + pupilOffsetX, head.y + 5, 2, 0, Math.PI * 2); ctx.fill(); ctx.closePath();
+}
+
+async function triggerHostStartMatch() {
+  const classCode = document.getElementById("filterClass").value.trim().toUpperCase();
+  if (!classCode) return;
+
+  isTeacherHost = true;
+  initAudio();
+  connectRealtimeChannel(classCode);
+
+  const selectedDuration = parseInt(document.getElementById("matchTimerSelect").value) || 60;
+  const selectedSchoolLevel = document.getElementById("schoolLevelSelect").value;
+
+  setTimeout(() => {
+    if (realtimeChannel) {
+      realtimeChannel.send({ 
+        type: 'broadcast', 
+        event: 'start_battle',
+        payload: { duration: selectedDuration, level: selectedSchoolLevel }
+      });
+      
+      init2DArena();
+      isMatchActive = true;
+      timeLeft = selectedDuration;
+      document.getElementById("timerHUD").innerText = `⏱️ ${timeLeft}s`;
+
+      clearInterval(matchTimer);
+      matchTimer = setInterval(() => {
+        timeLeft--;
+        document.getElementById("timerHUD").innerText = `⏱️ ${timeLeft}s`;
+        if (timeLeft <= 0) {
+          clearInterval(matchTimer);
+          endMatchBattle();
+        }
+      }, 1000);
+
+      if(autoRefreshTimer) clearInterval(autoRefreshTimer);
+      autoRefreshTimer = setInterval(renderBoard, 1000);
+    }
+  }, 300);
+}
+
+function endMatchBattle() {
+  isMatchActive = false;
+  let winnerTitle = "", winningTeamEmoji = "";
+  let redPct = Math.round((dividerX / canvas.width) * 100);
+
+  if (redPct > 50) { winnerTitle = "🏆 RED WORM WINS THE TERRITORY!"; winningTeamEmoji = "🔴"; }
+  else if (redPct < 50) { winnerTitle = "🏆 BLUE WORM WINS THE TERRITORY!"; winningTeamEmoji = "🔵"; }
+  else { winnerTitle = "🤝 IT'S A PERFECT DRAW!"; winningTeamEmoji = "DRAW"; }
+
+  if (realtimeChannel) {
+    realtimeChannel.send({
+      type: 'broadcast', event: 'end_battle',
+      payload: { winnerTitle: winnerTitle, winningTeamEmoji: winningTeamEmoji, redPct: redPct, bluePct: 100 - redPct }
+    });
+  }
+  munculkanAlert("🏁 TIME'S UP!", `${winnerTitle}<br><br>Red Territory: <b>${redPct}%</b><br>Blue Territory: <b>${100 - redPct}%</b>`);
+}
+
+function cekInput() {
+  const nama = document.getElementById("name").value.trim();
+  const kelas = document.getElementById("class").value.trim().toUpperCase();
+  const team = document.getElementById("teamSelect").value;
+  const startBtn = document.getElementById("startBtn");
+  const createClassBtn = document.getElementById("createClassBtn");
+  const scoreboardBtn = document.getElementById("scoreboardBtn");
+
+  if (team !== "") {
+    createClassBtn.disabled = true; createClassBtn.style.display = "none";
+    scoreboardBtn.disabled = true; scoreboardBtn.style.display = "none";
+
+    if (nama !== "" && kelas !== "") {
+      startBtn.disabled = true; startBtn.innerText = "⏳ WAITING FOR TEACHER...";
+      connectRealtimeChannel(kelas, nama, team);
+    }
+  } else {
+    if (!isTeacherHost) {
+      createClassBtn.disabled = false; createClassBtn.style.display = "block";
+      scoreboardBtn.disabled = false; scoreboardBtn.style.display = "inline-block";
+    }
+    startBtn.disabled = !(nama !== "" && kelas !== "");
+    startBtn.innerText = "START GAME";
+  }
+}
+
+function connectRealtimeChannel(classCode, pName = "", pTeam = "") {
+  if (currentJoinedClass === classCode && realtimeChannel) {
+    if (pName !== "") realtimeChannel.track({ name: pName, team: pTeam });
+    return;
+  }
+  if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
+  currentJoinedClass = classCode;
+
+  realtimeChannel = supabaseClient.channel('class-' + classCode, {
+    config: { presence: { key: pName || 'host' } }
+  });
+
+  realtimeChannel
+    .on('presence', { event: 'sync' }, () => updateLobbyUI(realtimeChannel.presenceState()))
+    .on('broadcast', { event: 'start_battle' }, (payload) => {
+      if (!isTeacherHost) {
+        const dur = (payload && payload.payload && payload.payload.duration) ? payload.payload.duration : 60;
+        const lev = (payload && payload.payload && payload.payload.level) ? payload.payload.level : "SD";
+        activeSchoolLevel = lev;
+        startQuizForStudent(dur);
+      }
+    })
+    .on('broadcast', { event: 'student_correct_answer' }, (payload) => {
+      if (isTeacherHost) {
+        pushTerritory(payload.payload.team, payload.payload.pushAmount);
+      }
+    })
+    .on('broadcast', { event: 'end_battle' }, (payload) => {
+      if (!isTeacherHost) {
+        handleStudentGameOver(payload.payload);
+      }
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED' && pName !== "") {
+        await realtimeChannel.track({ name: pName, team: pTeam });
+      }
+    });
+}
+
+function updateLobbyUI(state) {
+  let redP = [], blueP = [];
+  Object.keys(state).forEach(k => {
+    state[k].forEach(p => {
+      if (p.team === "🔴") redP.push(p.name);
+      if (p.team === "🔵") blueP.push(p.name);
+    });
+  });
+
+  document.getElementById("redTeamList").innerHTML = redP.map(n => `<div class="player-tag tag-red">🔴 ${n}</div>`).join('');
+  document.getElementById("blueTeamList").innerHTML = blueP.map(n => `<div class="player-tag tag-blue">🔵 ${n}</div>`).join('');
+}
+
+function syncHostChannel() {
+  const classCode = document.getElementById("filterClass").value.trim().toUpperCase();
+  renderBoard();
+  if (classCode !== "") {
+    isTeacherHost = true;
+    connectRealtimeChannel(classCode);
+  }
+}
+
+/* GENERATOR SOAL KUIS ACAK DENGAN PORSI LEVEL BALANCED */
+let currentAns = 0;
+let currentQuestionPoint = 10;
+let currentPushAmount = 15;
+
+function startQuizForStudent(duration) {
+  document.getElementById("top-menu").classList.add("hidden");
+  document.getElementById("quizArea").classList.remove("hidden");
+  
+  let studentTimeLeft = duration;
+  document.getElementById("studentTimerDisplay").innerText = `⏱️ Time: ${studentTimeLeft}s`;
+  
+  clearInterval(studentTimerInterval);
+  studentTimerInterval = setInterval(() => {
+    studentTimeLeft--;
+    if (studentTimeLeft >= 0) {
+      document.getElementById("studentTimerDisplay").innerText = `⏱️ Time: ${studentTimeLeft}s`;
+    } else {
+      clearInterval(studentTimerInterval);
+    }
+  }, 1000);
+
+  generateBalancedQuiz();
+}
+
+function generateBalancedQuiz() {
+  // ACAK LEVEL KESULITAN DENGAN PORSI SEIMBANG (33% EASY, 34% MEDIUM, 33% HARD)
+  let rand = Math.random();
+  let diff = "easy";
+  if (rand > 0.66) diff = "hard";
+  else if (rand > 0.33) diff = "medium";
+
+  const badgeEl = document.getElementById("levelBadgeDisplay");
+  if (diff === "easy") {
+    badgeEl.className = "level-badge level-easy"; badgeEl.innerText = "EASY (+10)";
+    currentQuestionPoint = 10; currentPushAmount = 15;
+  } else if (diff === "medium") {
+    badgeEl.className = "level-badge level-medium"; badgeEl.innerText = "MEDIUM (+15)";
+    currentQuestionPoint = 15; currentPushAmount = 25;
+  } else {
+    badgeEl.className = "level-badge level-hard"; badgeEl.innerText = "HARD (+25)";
+    currentQuestionPoint = 25; currentPushAmount = 40;
+  }
+
+  let qText = "", ans = 0, fakeOpts = [];
+
+  if (activeSchoolLevel === "SD") {
+    if (diff === "easy") {
+      let a = Math.floor(Math.random() * 20) + 5, b = Math.floor(Math.random() * 20) + 5;
+      qText = `${a} + ${b} = ?`; ans = a + b;
+    } else if (diff === "medium") {
+      let a = Math.floor(Math.random() * 12) + 2, b = Math.floor(Math.random() * 9) + 2;
+      qText = `${a} × ${b} = ?`; ans = a * b;
+    } else {
+      let a = Math.floor(Math.random() * 45) + 15, b = Math.floor(Math.random() * 15) + 5;
+      qText = `${a} - ${b} = ?`; ans = a - b;
+    }
+  } else if (activeSchoolLevel === "SMP") {
+    if (diff === "easy") {
+      let x = Math.floor(Math.random() * 10) + 2, b = Math.floor(Math.random() * 8) + 1;
+      qText = `Jika x = ${x}, berapa nilai (2x + ${b})?`; ans = 2 * x + b;
+    } else if (diff === "medium") {
+      let x = Math.floor(Math.random() * 8) + 2;
+      qText = `Hasil dari ${x}² + 5 = ?`; ans = Math.pow(x, 2) + 5;
+    } else {
+      let a = Math.floor(Math.random() * 10) + 2, b = Math.floor(Math.random() * 10) + 2;
+      qText = `FPB dari ${a * 4} dan ${a * 6} adalah?`; ans = a * 2;
+    }
+  } else if (activeSchoolLevel === "SMA") {
+    if (diff === "easy") {
+      let base = 2, exp = Math.floor(Math.random() * 4) + 2;
+      qText = `Nilai dari ²log(${Math.pow(base, exp)}) adalah?`; ans = exp;
+    } else if (diff === "medium") {
+      let degs = [30, 45, 60], d = degs[Math.floor(Math.random() * degs.length)];
+      if (d === 30) { qText = `2 × sin(30°) = ?`; ans = 1; }
+      else if (d === 45) { qText = `tan(45°) + 3 = ?`; ans = 4; }
+      else { qText = `2 × cos(60°) = ?`; ans = 1; }
+    } else {
+      let a = Math.floor(Math.random() * 5) + 2;
+      qText = `Jika f(x) = ${a}x² - 3, berapa f(3)?`; ans = a * 9 - 3;
+    }
+  }
+
+  currentAns = ans;
+  document.getElementById("questionText").innerText = qText;
+
+  fakeOpts = [ans, ans + 2, ans - 1, ans + 5].sort(() => Math.random() - 0.5);
+  let html = "";
+  fakeOpts.forEach(o => { html += `<button class="btn-blue" onclick="checkAnswer(${o})">${o}</button>`; });
+  document.getElementById("answerOptions").innerHTML = html;
+}
+
+async function checkAnswer(val) {
+  let team = document.getElementById("teamSelect").value;
+  if (val === currentAns) {
+    score += currentQuestionPoint;
+    document.getElementById("quizMsg").innerHTML = `<span style='color:#4caf50;'>✨ CORRECT! +${currentQuestionPoint} PTS (POWER PUSH!)</span>`;
+    
+    if (realtimeChannel) {
+      realtimeChannel.send({
+        type: 'broadcast',
+        event: 'student_correct_answer',
+        payload: { team: team, pushAmount: currentPushAmount }
+      });
+    }
+    syncScoreToDatabase();
+  } else {
+    document.getElementById("quizMsg").innerHTML = "<span style='color:#ff5252;'>❌ WRONG!</span>";
+  }
+  setTimeout(() => {
+    document.getElementById("quizMsg").innerHTML = "";
+    generateBalancedQuiz();
+  }, 850);
+}
+
+function handleStudentGameOver(data) {
+  clearInterval(studentTimerInterval);
+  const myTeam = document.getElementById("teamSelect").value;
+  let resultStatusText = "";
+
+  if (data.winningTeamEmoji === "DRAW") { resultStatusText = "🤝 GAME DRAW!"; }
+  else if (data.winningTeamEmoji === myTeam) { resultStatusText = "🎉 YOUR TEAM WON THE BATTLE!"; }
+  else { resultStatusText = "💔 YOUR TEAM LOST!"; }
+
+  const alertCloseBtn = document.getElementById("alertCloseBtn");
+  alertCloseBtn.innerText = "🔄 Reset & Ready for Next Round";
+  alertCloseBtn.onclick = resetStudentToLobby;
+
+  munculkanAlert("🏁 TIME'S UP!", 
+    `<b style='font-size:20px; color:#ffca28;'>${resultStatusText}</b><br><br>` +
+    `Your Final Score: <b style='color:#4caf50; font-size:24px;'>${score}</b><br>` +
+    `<small>Red Territory: ${data.redPct}% | Blue Territory: ${data.bluePct}%</small>`
+  );
+}
+
+function resetStudentToLobby() {
+  tutupAlert();
+  document.getElementById("quizArea").classList.add("hidden");
+  document.getElementById("top-menu").classList.remove("hidden");
+  
+  const alertCloseBtn = document.getElementById("alertCloseBtn");
+  alertCloseBtn.innerText = "Close";
+  alertCloseBtn.onclick = tutupAlert;
+
+  score = 0;
+  currentRecordId = null;
+  cekInput();
+}
+
+async function syncScoreToDatabase() {
+  let pName = document.getElementById("name").value.trim();
+  let pTeam = document.getElementById("teamSelect").value;
+  let pClass = document.getElementById("class").value.trim().toUpperCase();
+
+  if(!currentRecordId) {
+    const { data } = await supabaseClient.from("scores").insert([{
+      name: pTeam + " " + pName, class: pClass, score: score, mode: "2dtugofwar"
+    }]).select();
+    if(data && data.length > 0) currentRecordId = data[0].id;
+  } else {
+    await supabaseClient.from("scores").update({ score: score }).eq("id", currentRecordId);
+  }
+}
+
+async function renderBoard() {
+  const filter = document.getElementById("filterClass").value.trim().toUpperCase();
+  let query = supabaseClient.from("scores").select("*").neq("name", "HOST_PIN");
+  if(filter !== "") query = query.ilike("class", filter);
+  
+  let { data } = await query.order("score", { ascending:false }).limit(10);
+  if(!data) return;
+
+  document.getElementById("leaderboard").innerHTML = "<b>🏆 TOP PLAYERS</b><hr style='border:1px solid #3d2311;'>" +
+    data.map((d,i) => `<div><b>${i+1}.</b> ${d.name} - <b style='color:#ffca28;'>${d.score}</b></div>`).join('');
+}
+
+function toggleBoard() {
+  document.getElementById("boardPanel").classList.toggle("hidden");
+  if(!document.getElementById("boardPanel").classList.contains("hidden")) {
+    init2DArena();
+    updateTimerHUDPreview();
+  }
+}
+
+function bukaModalBuatKelas() { document.getElementById("modal-buat-kelas").style.display = "flex"; }
+function tutupModalBuatKelas() { document.getElementById("modal-buat-kelas").style.display = "none"; }
+
+async function prosesBuatKelas() {
+  const pin = document.getElementById("input-pin-baru").value;
+  if(pin.length < 3) return;
+
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; 
+  let code = "";
+  for(let i=0; i<5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+
+  tutupModalBuatKelas();
+
+  await supabaseClient.from("scores").insert([{ name: "HOST_PIN", class: code, score: 0, mode: pin }]);
+
+  isTeacherHost = true;
+  document.getElementById("createClassBtn").style.display = "none";
+  document.getElementById("scoreboardBtn").style.display = "none";
+  document.getElementById("top-menu").style.display = "none"; 
+  document.getElementById("boardPanel").classList.remove("hidden");
+  document.getElementById("filterClass").value = code;
+  syncHostChannel();
+  
+  munculkanAlert("✅ Class Created!", `Class Code: <b style='font-size:32px; color:#ffca28;'>${code}</b>`);
+}
+
+function munculkanAlert(j, p) {
+  document.getElementById("alert-title").innerHTML = j;
+  document.getElementById("alert-msg").innerHTML = p;
+  document.getElementById("custom-alert").style.display = "flex";
+}
+function tutupAlert() { document.getElementById("custom-alert").style.display = "none"; }
+</script>
+</body>
+</html>
